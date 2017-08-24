@@ -1,0 +1,220 @@
+{
+	"variables": [],
+	"info": {
+		"name": "ingestion-counters",
+		"_postman_id": "363c37da-636a-737f-dd96-7df9280998bd",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Get RestResponse Counters",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v2}}/counters/restresponse/",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": "http://localhost:5020/magen/ingestion/v2/counters/restresponse/"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Rest Response Counter",
+			"request": {
+				"url": " {{base}}://{{in-service}}/{{url-prefix_v2}}/counters/restresponse/OK/",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"counters\": {\n\t\t\"counter\": [ {\n\t\t\t\"name\": \"asset_creation\",\n\t\t\t\"period\": 60\n\t\t}\n\t\t]\n\t}\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get Rest Response Counter OK",
+			"request": {
+				"url": " {{base}}://{{in-service}}/{{url-prefix_v2}}/counters/restresponse/OK/",
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"counters\": {\n\t\t\"counter\": [ {\n\t\t\t\"name\": \"asset_creation\",\n\t\t\t\"period\": 60\n\t\t}\n\t\t]\n\t}\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Create Rest Request Counter",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v2}}/counters/restrequest/get/",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"counters\": {\n\t\t\"counter\": [ {\n\t\t\t\"name\": \"asset_access\",\n\t\t\t\"period\": 60\n\t\t}\n\t\t]\n\t}\n}"
+				},
+				"description": "http://localhost:5020/magen/ingestion/v2/counters/restrequests/get"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Rest Request Counter GET",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v2}}/counters/restrequest/get/",
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"counters\": {\n\t\t\"counter\": [ {\n\t\t\t\"name\": \"asset_creation\",\n\t\t\t\"period\": 60\n\t\t}\n\t\t]\n\t}\n}"
+				},
+				"description": "http://localhost:5020/magen/ingestion/v2/counters/restrequests/get"
+			},
+			"response": []
+		},
+		{
+			"name": "Get All Counters",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v2}}/counters/",
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"counters\": {\n\t\t\"counter\": [ {\n\t\t\t\"name\": \"asset_creation\"\n\t\t}\n\t\t]\n\t}\n}"
+				},
+				"description": "http://localhost:5020/magen/ingestion/v2/counters/"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Not Flavored Counters",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v2}}/counters/",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"counters\": {\n\t\t\"counter\": [ {\n\t\t\t\"name\": \"asset_creation\",\n\t\t\t\"period\": 60\n\t\t}\n\t\t]\n\t}\n}"
+				},
+				"description": "http://localhost:5020/magen/ingestion/v2/counters/"
+			},
+			"response": []
+		},
+		{
+			"name": "Test Increment Ingestion Counters",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/test_counters/increment/",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": "http://localhost:5020/test_counters/"
+			},
+			"response": []
+		},
+		{
+			"name": "Test Reset Ingestion Counters",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/test_counters/reset/",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": "http://localhost:5020/test_counters/reset/"
+			},
+			"response": []
+		},
+		{
+			"name": "Test Delete Ingestion Counters",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/test_counters/delete/",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": "localhost:5020/test_counters/delete/"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Multiple Not Flavored Counter",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v2}}/counters/",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"counters\": {\n\t\t\"counter\": [ {\n\t\t\t\"name\": \"asset_creation\",\n\t\t\t\"period\": 60\n\t\t}, {\n\t\t\t\"name\": \"asset_deletion\",\n\t\t\t\"flavor\": \"RestRequest.DELETE\"\n\t\t}\n\t\t]\n\t}\n}"
+				},
+				"description": "http://localhost:5020/magen/ingestion/v2/counters/"
+			},
+			"response": []
+		}
+	]
+}

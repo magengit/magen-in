@@ -1,0 +1,144 @@
+{
+	"variables": [],
+	"info": {
+		"name": "ingestion-collection_v1",
+		"_postman_id": "e215bc62-2b35-e995-66b8-028253501dc5",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/check/",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": "{{base}}://{{in-service}}/{{url_prefix_v1}}/check/"
+			},
+			"response": []
+		},
+		{
+			"name": "Set Logging Level",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/logging_level/",
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"level\":\"<logging_level>\"\n}"
+				},
+				"description": "{{base}}://{{in-service}}/{{url_prefix_v1}}/logging_level/<level>/"
+			},
+			"response": []
+		},
+		{
+			"name": "Multiple Assets",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/assets/",
+				"method": "DELETE",
+				"header": [],
+				"body": {},
+				"description": "{{base}}://{{in-service}}/{{url_prefix_v1}}/assets/"
+			},
+			"response": []
+		},
+		{
+			"name": "Multiple Assets",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/assets/",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": "{{base}}://{{in-service}}/{{url_prefix_v1}}/assets/"
+			},
+			"response": []
+		},
+		{
+			"name": "Single Asset Generation",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/assets/asset/",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"asset\": [\n    {\n      \"name\": \"finance doc\",\n      \"resource_group\": \"roadmap\",\n      \"resource_id\": 3,\n      \"client_uuid\": \"<client_id>\",\n      \"host\": \"sjc-repenno-nitro10.cisco.com\"\n    }\n  ]\n}"
+				},
+				"description": "{{base}}://{{in-service}}/{{url_prefix_v1}}/assets/"
+			},
+			"response": []
+		},
+		{
+			"name": "Single Asset Update",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/assets/asset/3e9d8177-4bf6-4a1b-ac60-3627b5b825db/",
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"asset\": [\n    {\n      \"client_uuid\": \"f81d4fae-7dec-11d0-a765-00a0c91e6bf6\",\n      \"creation_timestamp\": \"2016-09-01 21:22:13.053688+00:00\",\n      \"host\": \"sjc-repenno-nitro10.cisco.com\",\n      \"name\": \"finance doc\",\n      \"resource_group\": \"earnings\",\n      \"resource_id\": 2,\n      \"uuid\": \"3e9d8177-4bf6-4a1b-ac60-3627b5b825db\",\n      \"version\": 1\n    }\n  ]\n}"
+				},
+				"description": "{{base}}://{{in-service}}/{{url_prefix_v1}}/assets/"
+			},
+			"response": []
+		},
+		{
+			"name": "Single Asset",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/assets/asset/3e9d8177-4bf6-4a1b-ac60-3627b5b825db/",
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"asset\": [\n    {\n      \"client_uuid\": \"f81d4fae-7dec-11d0-a765-00a0c91e6bf6\",\n      \"creation_timestamp\": \"2016-09-01 21:22:13.053688+00:00\",\n      \"host\": \"sjc-repenno-nitro10.cisco.com\",\n      \"name\": \"finance doc\",\n      \"resource_group\": \"earnings\",\n      \"resource_id\": 2,\n      \"uuid\": \"3e9d8177-4bf6-4a1b-ac60-3627b5b825db\",\n      \"version\": 1\n    }\n  ]\n}"
+				},
+				"description": "{{base}}://{{in-service}}/{{url_prefix_v1}}/assets/"
+			},
+			"response": []
+		},
+		{
+			"name": "Single Asset",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v1}}/assets/asset/3e9d8177-4bf6-4a1b-ac60-3627b5b825db/",
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"asset\": [\n    {\n      \"client_uuid\": \"f81d4fae-7dec-11d0-a765-00a0c91e6bf6\",\n      \"creation_timestamp\": \"2016-09-01 21:22:13.053688+00:00\",\n      \"host\": \"sjc-repenno-nitro10.cisco.com\",\n      \"name\": \"finance doc\",\n      \"resource_group\": \"earnings\",\n      \"resource_id\": 2,\n      \"uuid\": \"3e9d8177-4bf6-4a1b-ac60-3627b5b825db\",\n      \"version\": 1\n    }\n  ]\n}"
+				},
+				"description": "{{base}}://{{in-service}}/{{url_prefix_v1}}/assets/"
+			},
+			"response": []
+		}
+	]
+}

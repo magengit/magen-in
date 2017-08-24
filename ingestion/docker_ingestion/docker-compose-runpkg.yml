@@ -1,0 +1,29 @@
+# run docker image using installed wheel pkg, not source: mount /opt/svc for cfg/logs
+# ("runpkg" vs "rundev")
+
+version: "2"
+services:
+  magen_ingestion:
+    build: .
+    image: magen_ingestion:v1.0
+    container_name: magen_ingestion
+    command: bash -c "ingestion_server.py --data-dir /opt/svc/data --console-log-level 'info' --log-dir 'ingestion_logs' 2>&1 >> ingestion_server.log"
+    ports:
+      - "443:5020"
+      - "5020:5020"
+    volumes:
+      - ~/magen_data/ingestion/:/opt/svc/
+    stdin_open: true
+    tty: true
+    networks:
+      - default
+  magen_mongo:
+    image: mongo:latest
+    container_name: magen_mongo
+    networks:
+      - default
+
+networks:
+  default:
+    external:
+      name: magen_net

@@ -1,0 +1,82 @@
+dist: trusty
+sudo: required
+
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y apt-utils
+  - sudo apt-get install -y wget
+  - sudo apt-get install -y xz-utils
+  - sudo apt-get install -y build-essential
+  - sudo apt-get install -y libsqlite3-dev
+  - sudo apt-get install -y libreadline-dev
+  - sudo apt-get install -y libssl-dev
+  - sudo apt-get install -y libffi-dev
+  - sudo apt-get install -y openssl
+  - sudo apt-get install -y net-tools
+#  - sudo add-apt-repository -y ppa:jonathonf/python-3.6
+  - sudo apt-get -qq update
+  # Python
+#  - sudo apt-get -y install python3.6
+#  - sudo apt-get -y install python3.6-dev
+#  - sudo apt-get -y install python3-pip
+#  - sudo -H pip3 install -U pip setuptools
+#  - echo "alias python=python3.6" >> ~/.bashrc
+  # Mongo
+  - sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 0C49F3730359A14518585931BC711F9BA15703C6
+  - echo "deb [ arch=amd64 ] http://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.4.list
+  - sudo apt-get -qq update
+  - sudo apt-get install -y mongodb-org
+  - sudo chown -R mongodb:mongodb /var/lib/mongodb
+  # Allowing connections to other interfaces besides loopback
+  - sudo sed -i.bak '/bindIp/d' /etc/mongod.conf
+  - sudo service mongod start
+  # Docker compose
+  - sudo curl -o /usr/local/bin/docker-compose -L "https://github.com/docker/compose/releases/download/1.11.2/docker-compose-$(uname -s)-$(uname -m)"
+  - sudo chmod +x /usr/local/bin/docker-compose
+  - docker-compose -v
+  # PIP
+  # Part of core image
+  - sudo cp ingestion/pip.conf /etc/pip.conf
+  - cp ingestion/.pypirc ~/.pypirc
+
+notifications:
+  email:
+    recipients:
+      - magen-build@cisco.com
+    on_success: always # default: change
+    on_failure: always # default: always
+
+services:
+  - docker
+language: python
+#python:
+#  - "3.6"
+#  - "3.6-dev" # 3.6 development branch
+# command to install dependencies
+matrix:
+  include:
+    - python: 3.6
+      env: TO_BUILD=NATIVE
+    - python: 3.6
+      env: TO_BUILD=DOCKER
+  fast_finish: true
+
+install:
+  - cd ingestion
+  - if [ "$TO_BUILD" = "NATIVE" ]; then make all; fi
+  - if [ "$TO_BUILD" = "DOCKER" ]; then make package && make build_docker; fi
+
+before_script:
+  - if [ "$TO_BUILD" = "DOCKER" ]; then sudo docker images; fi
+  - printenv
+
+script:
+  - if [ "$TO_BUILD" = "NATIVE" ]; then make test_travis; fi
+  - if [ "$TO_BUILD" = "DOCKER" ]; then make test_docker; fi
+
+after_success:
+  - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then
+      ./helper_scripts/upload_artifacts.sh;
+    else
+      echo $TRAVIS_BRANCH;
+    fi

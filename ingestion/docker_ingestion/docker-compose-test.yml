@@ -1,0 +1,17 @@
+version: "2"
+services:
+  ingestion_test:
+    image: magen_ingestion:v1.0
+    container_name: magen_ingestion_test
+    command: bash -c "make test_travis"
+    ports:
+      - "5020:5020"
+    volumes:
+      - ../..:/opt/server
+    links:
+      - magen_mongo:magen_mongo
+    depends_on:
+      - magen_mongo
+  magen_mongo:
+    image: mongo:latest
+    container_name: magen_mongo

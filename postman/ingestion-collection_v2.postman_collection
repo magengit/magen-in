@@ -1,0 +1,31 @@
+{
+	"variables": [],
+	"info": {
+		"name": "ingestion-collection_v2",
+		"_postman_id": "26c398b3-d337-7122-cd72-0781bdca60a7",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create an Asset",
+			"request": {
+				"url": "{{base}}://{{in-service}}/{{url-prefix_v2}}/upload/",
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"description": "",
+							"type": "file",
+							"src": "test_up.txt"
+						}
+					]
+				},
+				"description": "https://is.staging.magen.io/magen/ingestion/v2/upload/\n\nThis request will return 500 error if key server is not running as well as ingestion server.\nKey server is responsible for asset key creation."
+			},
+			"response": []
+		}
+	]
+}
