@@ -9,6 +9,9 @@ SERVER_PID=
 OS := $(shell uname)
 PIP := pip3
 SERVER_NAME=ingestion_server.py
+DOCKER_SRC_TAG=magen_ingestion:v1.0
+DOCKER_IMAGE=magen-in
+DOCKER_DIR=docker_$(PACKAGE_TAG)
 
 MAGEN_HELPER=../lib/magen_helper
 
