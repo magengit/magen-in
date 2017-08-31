@@ -44,19 +44,23 @@ matrix:
   - python: 3.6
     env: TO_BUILD=DOCKER
   fast_finish: true
+
 install:
 - cd ingestion
 - if [ "$TO_BUILD" = "NATIVE" ]; then make all; fi
 - if [ "$TO_BUILD" = "DOCKER" ]; then make package && make build_docker; fi
+
 before_script:
 - if [ "$TO_BUILD" = "DOCKER" ]; then sudo docker images; fi
 - printenv
+
 script:
 - if [ "$TO_BUILD" = "NATIVE" ]; then make test_travis; fi
 - if [ "$TO_BUILD" = "DOCKER" ]; then make test_docker; fi
+
 after_success:
   - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then
-      make upload
+      make upload;
     else
       echo $TRAVIS_BRANCH;
     fi
