@@ -1,4 +1,4 @@
-FROM 079349112641.dkr.ecr.us-west-2.amazonaws.com/magen-core:latest
+FROM magendocker/magen-core:latest
 MAINTAINER Alena Lifar
 
 VOLUME ["/opt/server"]
