@@ -27,6 +27,7 @@ before_install:
 - docker-compose -v
 # - sudo cp ingestion/pip.conf /etc/pip.conf
 # - cp ingestion/.pypirc ~/.pypirc
+- pip3 install twine
 notifications:
   email:
     recipients:
