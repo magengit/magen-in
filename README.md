@@ -1,5 +1,7 @@
 # Magen Ingestion Service
 
+[![Build Status](https://travis-ci.org/magengit/magen-in.svg?branch=master)](https://travis-ci.org/magengit/magen-in)
+
 Magen Ingestion Service is a microservice responsible for ingesting a digital data into the system. It exposes REST API
 for managing digital assets. By assets we understand any sensitive resources that could be encrypted or wrapped
 in order to restrict access to them.
