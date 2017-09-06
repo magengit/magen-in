@@ -59,7 +59,7 @@ before_install:
   - pip3 install twine
 
 install:
-  - cd id
+  - cd ingestion
   - if [ "$TO_BUILD" = "NATIVE" ]; then make all; fi
   - if [ "$TO_BUILD" = "DOCKER" ]; then make build_docker; fi
 
