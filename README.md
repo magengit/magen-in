@@ -1,6 +1,7 @@
 # Magen Ingestion Service
 
 [![Build Status](https://travis-ci.org/magengit/magen-in.svg?branch=master)](https://travis-ci.org/magengit/magen-in)
+[![codecov](https://codecov.io/gh/magengit/magen-ks/branch/master/graph/badge.svg)](https://codecov.io/gh/magengit/magen-ks)
 [![Code Health](https://landscape.io/github/magengit/magen-in/master/landscape.svg?style=flat)](https://landscape.io/github/magengit/magen-in/master)
 
 

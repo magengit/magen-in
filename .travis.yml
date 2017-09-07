@@ -57,6 +57,7 @@ before_install:
 
   - sudo apt-get -qq update
   - pip3 install twine
+  - pip3 install codecov
 
 install:
   - cd ingestion
@@ -74,6 +75,7 @@ script:
 after_success:
   - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then
       make upload;
+      codecov;
     else
       echo $TRAVIS_BRANCH;
     fi
