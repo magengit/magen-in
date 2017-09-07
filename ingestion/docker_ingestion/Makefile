@@ -1,8 +1,8 @@
 MAGEN_HELPER=../../lib/magen_helper
 staging_dir=$(shell pwd)
 
-service_name=magen_ingestion
-port=5020
+mkcmn_docker_compose_service_name=magen_ingestion
+mkcmn_docker_compose_service_port=5020
 
 include $(MAGEN_HELPER)/make_common/docker_compose_common.mk
 
