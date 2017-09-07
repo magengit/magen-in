@@ -1,0 +1,14 @@
+doc-warnings: false
+test-warnings: true
+strictness: veryhigh
+max-line-length: 120
+uses:
+  - flask
+autodetect: true
+ignore-paths:
+  - postman
+  - lib
+  - ingestion/docs
+  - ingestion/docker_ingestion
+python-targets:
+  - 3
