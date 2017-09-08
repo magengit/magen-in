@@ -226,8 +226,8 @@ def magen_update_asset(asset_uuid):
     success = False
     asset_dict = request.json["asset"][0]
     if "creation_timestamp" in asset_dict:
-    	original_creation_timestamp = datetime_parse_iso8601_string_to_utc(asset_dict["creation_timestamp"])
-    	asset_dict["creation_timestamp"] = original_creation_timestamp
+        original_creation_timestamp = datetime_parse_iso8601_string_to_utc(asset_dict["creation_timestamp"])
+        asset_dict["creation_timestamp"] = original_creation_timestamp
     if asset_dict["uuid"] != asset_uuid:
         result = {
             "success": success,
