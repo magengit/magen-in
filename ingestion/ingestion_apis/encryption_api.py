@@ -6,8 +6,11 @@
 import os
 import struct
 import io
+import logging
 
 from Crypto.Cipher import AES
+from magen_logger.logger_config import LogDefaults
+
 
 __author__ = "paulq@cisco.com"
 __copyright__ = "Copyright(c) 2015, Cisco Systems, Inc."
@@ -92,6 +95,8 @@ class EncryptionApi(object):
         :type chunksize: int
         """
 
+        logger = logging.getLogger(LogDefaults.default_log_name)
+
         # move to end of file
         file_obj.seek(0,2)
         # get file size without reading contents
@@ -102,6 +107,8 @@ class EncryptionApi(object):
         out_stream = io.BytesIO()
 
         io_size = out_stream.getbuffer().nbytes
+        logger.debug(
+            "encryption buffer size: %s", io_size)
         # print("file-stream size: {}".format(io_size))
 
         encryptor = AES.new(key, AES.MODE_CBC, key_iv)
@@ -294,6 +301,9 @@ class EncryptionApi(object):
         in_stream.seek(0,0)
         out_stream = io.BytesIO()
         in_stream_size = in_stream.getbuffer().nbytes
+        logger = logging.getLogger(LogDefaults.default_log_name)
+        logger.debug(
+            "encryption in-buffer stream size: %s", in_stream_size)
         metadata = in_stream.read(256)
         read_size = struct.calcsize('Q')
         read_value = in_stream.read(read_size)

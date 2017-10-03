@@ -35,14 +35,11 @@ class AssetCreationApi:
         if not create_result:
             logger.error(
                 "Failed to create asset internal representation")
-            return False, "Asset creation failed"
+            return False, "Asset creation failed", 0
 
         # Insert Asset
         success, message, count = AssetDbApi.insert(asset_dict)
-        if not success:
-            return success, message
-
-        return success, message
+        return success, message, count
 
     @staticmethod
     def create_asset_from_json(asset_dict):
@@ -57,6 +54,6 @@ class AssetCreationApi:
             ).replace(tzinfo=SimpleUtc())
             asset_dict["version"] = 1
             return True
-        except Exception as e:
-            print("Unexpected error:", sys.exc_info()[0])
+        except TypeError as e:
+            print("Unexpected error:  {}, {} ".format(e, sys._getframe().f_code.co_name))
             return False

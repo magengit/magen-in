@@ -67,8 +67,8 @@ def upload_file():
     filename = secure_filename(file_obj.filename)
     file_content_ref = file_obj.read()
     asset_dict = {"filename": filename}
-    success, message = AssetCreationApi.process_asset(asset_dict)
-    if success:
+    success, message, count = AssetCreationApi.process_asset(asset_dict)
+    if success and count:
         # Since we created an asset, now we will request its key
         server_urls_instance = ServerUrls().get_instance()
         key_post_dict = {}

@@ -86,7 +86,7 @@ def set_logging_level():
             HTTPStatus.OK, "set_logging_level", {
                 "success": True, "cause": "level set to %s" %
                                           level})
-    except Exception as e:
+    except ValueError:
         return RestServerApis.respond(
             HTTPStatus.INTERNAL_SERVER_ERROR, "set_logging_level", {
                 "success": False, "cause": HTTPStatus.INTERNAL_SERVER_ERROR.phrase})
@@ -160,8 +160,8 @@ def magen_create_asset():
         asset_dict = request.json["asset"][0]
         # Asset_dict is modified in place and there are no added internal
         # fields so at this point response and asset_dict should be the same.
-        success, message = AssetCreationApi.process_asset(asset_dict)
-        if success:
+        success, message, count = AssetCreationApi.process_asset(asset_dict)
+        if success and count:
             # If we do not pop the _id we can not JSONify it
             asset_dict.pop('_id', None)
             # Since we created an asset, now we will request its key
@@ -198,7 +198,7 @@ def magen_create_asset():
             http_response.headers['location'] = request.url + asset_dict['uuid'] + '/'
             return http_response
         else:
-            raise Exception
+            raise Exception(message)
     except BadRequest as e:
         # Most Likely a JSON violation
         counters.increment(RestResponse.BAD_REQUEST, INGESTION)
@@ -210,8 +210,9 @@ def magen_create_asset():
             "success": False, "cause": HTTPStatus.BAD_REQUEST.phrase, "asset": asset_dict})
     except Exception as e:
         counters.increment(RestResponse.INTERNAL_SERVER_ERROR, INGESTION)
+        message = e.args[0]
         return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Create Asset", {
-            "success": success, "cause": HTTPStatus.INTERNAL_SERVER_ERROR.phrase, "asset": asset_dict})
+            "success": success, "cause": message, "asset": asset_dict})
 
 
 # Update of Asset - not supported yet
@@ -272,9 +273,14 @@ def magen_delete_asset(asset_uuid):
             "cause": msg
         }
         if success:
-            counters.increment(RestResponse.OK, INGESTION)
-            return RestServerApis.respond(HTTPStatus.OK, "Delete Asset",
-                                          result)
+            if count:
+                counters.increment(RestResponse.OK, INGESTION)
+                return RestServerApis.respond(HTTPStatus.OK, "Delete Asset",
+                                              result)
+            else:
+                counters.increment(RestResponse.NOT_FOUND, INGESTION)
+                return RestServerApis.respond(HTTPStatus.NOT_FOUND, "Delete Asset",
+                                              result)
         else:
             counters.increment(RestResponse.INTERNAL_SERVER_ERROR, INGESTION)
             return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Delete Asset",
@@ -282,7 +288,7 @@ def magen_delete_asset(asset_uuid):
     except ValueError as e:
         counters.increment(RestResponse.BAD_REQUEST, INGESTION)
         return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Create Asset", {
-            "success": False, "cause": HTTPStatus.BAD_REQUEST.phrase, "asset": asset_uuid})
+            "success": False, "cause": e.args[0], "asset": asset_uuid})
 
 
 @ingestion_bp.route('/assets/asset/<asset_uuid>/', methods=["GET"])
@@ -338,8 +344,8 @@ def upload_file():
     filename = secure_filename(file_obj.filename)
     file_content_ref = file_obj.read()
     asset_dict = {"filename": filename}
-    success, message = AssetCreationApi.process_asset(asset_dict)
-    if success:
+    success, message, count = AssetCreationApi.process_asset(asset_dict)
+    if success and count:
         # Since we created an asset, now we will request its key
         server_urls_instance = ServerUrls().get_instance()
         key_post_dict = {}

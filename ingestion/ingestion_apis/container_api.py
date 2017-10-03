@@ -96,6 +96,9 @@ class ContainerApi(object):
         try:
             metadata_b64 = base64.b64encode(metadata_json.encode('utf-8'))
             return metadata_b64
-        except:
-            print("Unexpected error encoding metadata:", sys.exc_info()[0])
+        except TypeError as e:
+            print("Unexpected error:  {}, {} ".format(e, sys._getframe().f_code.co_name))
+            return None
+        except AttributeError as e:
+            print("Unexpected error during encoding:  {}, {} ".format(e, sys._getframe().f_code.co_name))
             return None

@@ -117,7 +117,7 @@ class TestRestApi(unittest.TestCase):
         print("+++++++++Single Asset POST Test+++++++++")
         server_urls_instance = IngestionUrls()
         # AssetCreationApi.process_asset
-        mock = Mock(side_effect=Exception)
+        mock = Mock(side_effect=ValueError("test_SingleAssetPost_Fail_Exception"))
         with patch('ingestion.ingestion_apis.asset_creation_api.AssetCreationApi.process_asset', new=mock):
             post_resp_obj = type(self).app.post(server_urls_instance.asset_url, data=MAGEN_SINGLE_ASSET_FINANCE_POST,
                                                 headers=RestClientApis.put_json_headers)
@@ -178,7 +178,7 @@ class TestRestApi(unittest.TestCase):
         server_urls_instance = IngestionUrls()
         resource_url = server_urls_instance.single_asset_url.format("ff4af751-0e0b-4b0a-82c0-2212bea041bf")
         get_resp_obj = type(self).app.delete(resource_url)
-        self.assertEqual(get_resp_obj.status_code, HTTPStatus.OK)
+        self.assertEqual(get_resp_obj.status_code, HTTPStatus.NOT_FOUND)
 
     def test_SingleAssetPost(self):
         """
@@ -353,7 +353,7 @@ class TestRestApi(unittest.TestCase):
         # AssetCreationApi.process_asset
         asset_put = json.loads(MAGEN_SINGLE_ASSET_FINANCE_PUT)
         put_url = server_urls_instance.single_asset_url.format(asset_put["asset"][0]["uuid"])
-        mock = Mock(side_effect=ValueError)
+        mock = Mock(side_effect=ValueError("test_SingleAssetDelete_Fail_ValueError"))
         with patch('ingestion.ingestion_apis.asset_db_api.AssetDbApi.delete_one', new=mock):
             put_resp_obj = type(self).app.delete(put_url, data=MAGEN_SINGLE_ASSET_FINANCE_PUT,
                                                  headers=RestClientApis.put_json_headers)
