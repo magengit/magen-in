@@ -167,7 +167,8 @@ class EncryptionApi(object):
         out_stream = io.BytesIO()
         out_stream.write(metadata_byte_array)
 
-        io_size = out_stream.getbuffer().nbytes
+        # Debug
+        # io_size = out_stream.getbuffer().nbytes
         # print("file-stream size: {}".format(io_size))
 
         encryptor = AES.new(key, AES.MODE_CBC, key_iv)

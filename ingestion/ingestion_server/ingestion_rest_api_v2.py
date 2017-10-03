@@ -2,6 +2,8 @@ import base64
 import hashlib
 import json
 import os
+import logging
+
 from http import HTTPStatus
 
 import magen_statistics_server.counters as counters
@@ -16,9 +18,11 @@ from magen_statistics_api.metric_flavors import RestResponse
 from werkzeug.utils import secure_filename
 
 from ingestion.ingestion_apis.asset_creation_api import AssetCreationApi
+from magen_logger.logger_config import LogDefaults
 
 project_root = os.path.dirname(__file__)
 template_path = os.path.join(project_root, 'templates')
+logger = logging.getLogger(LogDefaults.default_log_name)
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 UPLOAD_FOLDER = dir_path + '/magen_files'
@@ -65,7 +69,8 @@ def upload_file():
             "success": False, "cause": "No File Name", "asset": None, "container_version": CONTAINER_VERSION,
             "container": None})
     filename = secure_filename(file_obj.filename)
-    file_content_ref = file_obj.read()
+    # Debug
+    # file_content_ref = file_obj.read()
     asset_dict = {"filename": filename}
     success, message, count = AssetCreationApi.process_asset(asset_dict)
     if success and count:
@@ -91,7 +96,8 @@ def upload_file():
         if post_return_obj.success:
             key_info = post_return_obj.json_body
             key_b64 = key_info["response"]["key"]
-            key_id = key_info["response"]["key_id"]
+            # Debug
+            # key_id = key_info["response"]["key_id"]
             key_iv_b64 = key_info["response"]["iv"]
             # Decode key material we got from KS
             iv_decoded = base64.b64decode(key_iv_b64)
@@ -126,6 +132,7 @@ def upload_file():
                 "success": False, "cause": "KeyServer Error", "asset": None, "container_version": CONTAINER_VERSION,
                 "container": None})
     else:
+        logger.error("Failed to create asset: %s", message)
         return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Upload File", {
             "success": False, "cause": "Failed to create asset", "asset": None, "container_version": CONTAINER_VERSION,
             "container": None})

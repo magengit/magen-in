@@ -19,9 +19,13 @@ from werkzeug.utils import secure_filename
 from ingestion.ingestion_apis.asset_creation_api import AssetCreationApi
 from ingestion.ingestion_apis.asset_db_api import AssetDbApi
 from ingestion.ingestion_server.ingestion_urls import IngestionUrls
+from magen_logger.logger_config import LogDefaults
+
 
 project_root = os.path.dirname(__file__)
 template_path = os.path.join(project_root, 'templates')
+logger = logging.getLogger(LogDefaults.default_log_name)
+
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 UPLOAD_FOLDER = dir_path + '/magen_files'
@@ -342,7 +346,8 @@ def upload_file():
         return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Upload File", {
             "success": False, "cause": "No File Name", "asset": None})
     filename = secure_filename(file_obj.filename)
-    file_content_ref = file_obj.read()
+    # Debug
+    # file_content_ref = file_obj.read()
     asset_dict = {"filename": filename}
     success, message, count = AssetCreationApi.process_asset(asset_dict)
     if success and count:
@@ -368,7 +373,8 @@ def upload_file():
         if post_return_obj.success:
             key_info = post_return_obj.json_body
             key_b64 = key_info["response"]["key"]
-            key_id = key_info["response"]["key_id"]
+            # Debug
+            # key_id = key_info["response"]["key_id"]
             key_iv_b64 = key_info["response"]["iv"]
             metadata_byte_array = EncryptionApi.create_meta(asset_dict["uuid"])
             # Decode key material we got from KS
@@ -392,8 +398,9 @@ def upload_file():
                 "success": False, "cause": "KeyServer Error", "asset": None, "file": encrypted_stream})
         counters.increment(RestResponse.CREATED, INGESTION)
     else:
+        logger.error(message)
         return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Upload File", {
-            "success": False, "cause": "Failed to create asset", "asset": None, "file": encrypted_stream})
+            "success": False, "cause": message, "asset": None, "file": encrypted_stream})
     return RestServerApis.respond(HTTPStatus.OK, "Upload File",
                                   {"success": True, "cause": HTTPStatus.OK.phrase,
                                    "asset": asset_dict["uuid"],

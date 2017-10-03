@@ -5,7 +5,6 @@
 #
 
 import argparse
-import socket
 import sys
 
 from magen_rest_apis.magen_app import MagenApp
@@ -46,7 +45,7 @@ INGESTION_SERVER_PORT = 5020
 
 
 def main(args):
-    ret = sys.argv[1:]
+    # ret = sys.argv[1:]
     server_urls_instance = ServerUrls.get_instance()
     #: setup parser -----------------------------------------------------------
     parser = argparse.ArgumentParser(description='Magen Ingestion Server',
@@ -102,7 +101,7 @@ def main(args):
 
     #: parse CMD arguments ----------------------------------------------------
     # args = parser.parse_args()
-    args, unknown = parser.parse_known_args(args)
+    args, _ = parser.parse_known_args(args)
 
     # Initialize Magen Logger
     logger = initialize_logger(console_level=args.console_log_level, output_dir=args.log_dir)
@@ -123,7 +122,7 @@ def main(args):
         db.core_database.initialize()
 
     if args.clean_init:
-        success, msg = AssetDbApi.delete_all()
+        success, _ = AssetDbApi.delete_all()
         assert success is True
 
     if args.key_server_ip_port is not None:

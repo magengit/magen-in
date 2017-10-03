@@ -5,7 +5,6 @@ import json
 import unittest
 
 # noinspection PyUnresolvedReferences
-import time
 import uuid
 from http import HTTPStatus
 from unittest.mock import Mock, patch
@@ -129,7 +128,7 @@ class TestRestApi(unittest.TestCase):
         url = server_urls_instance.ingestion_server_base_url + "config/routes/"
         get_resp_obj = self.app.get(url)
         get_resp_json = json.loads(get_resp_obj.data.decode("utf-8"))
-        success, phrase, status = TestMagenObjectApis.compare_json(get_resp_json,
+        success, _, _ = TestMagenObjectApis.compare_json(get_resp_json,
                                                                    json.loads(MAGEN_INGESTION_URLS_RESP_DICT))
         self.assertTrue(success)
 
@@ -278,8 +277,8 @@ class TestRestApi(unittest.TestCase):
         get_resp_obj = self.app.get(location_header)
         get_resp_json = json.loads(get_resp_obj.data.decode("utf-8"))
         self.assertEqual(get_resp_obj.status_code, HTTPStatus.OK)
-        success, phrase, status = TestMagenObjectApis.compare_json(get_resp_json,
-                                                                   json.loads(MAGEN_SINGLE_ASSET_FINANCE_GET_RESP))
+        success, _, _ = TestMagenObjectApis.compare_json(get_resp_json,
+                                                         json.loads(MAGEN_SINGLE_ASSET_FINANCE_GET_RESP))
         self.assertTrue(success)
 
     def test_SingleAssetPost_SingleAssetPut_Fail(self):
@@ -303,10 +302,9 @@ class TestRestApi(unittest.TestCase):
                 break
 
         self.assertIsNotNone(location_header)
-        # We patch the standard message with the uuid returned in the location header
         asset_put = json.loads(MAGEN_SINGLE_ASSET_FINANCE_PUT)
         url_components_list = location_header.split("/")
-        asset_uuid = url_components_list[-2]
+        # asset_uuid = url_components_list[-2]
         # asset_put["asset"][0]["uuid"] = asset_uuid
 
         put_resp_obj = type(self).app.put(location_header, data=json.dumps(asset_put),
@@ -377,7 +375,8 @@ class TestRestApi(unittest.TestCase):
         Creates multiple resources with POSTs and retrieves in bulk.
         """
         server_urls_instance = IngestionUrls()
-        current_path = os.path.dirname(os.path.realpath(__file__))
+        # We get it from magen_env
+        # current_path = os.path.dirname(os.path.realpath(__file__))
         full_path = current_path + "/test_up.txt"
         try:
             magen_file = open(full_path, 'w+')
@@ -431,7 +430,7 @@ class TestRestApi(unittest.TestCase):
             in_stream = io.BytesIO()
             in_stream.write(file_content_enc)
             in_stream.seek(0, 0)
-            key_uuid, source = EncryptionApi.retrieve_metadata(in_stream)
+            key_uuid, _ = EncryptionApi.retrieve_metadata(in_stream)
             key_uuid_url = server_urls_instance.key_server_single_asset_url.format(key_uuid)
             get_return_obj = RestClientApis.http_get_and_check_success(key_uuid_url)
             self.assertEqual(get_return_obj.success, True)
@@ -475,7 +474,7 @@ class TestRestApi(unittest.TestCase):
             self.assertEqual(get_return_obj.success, True)
             key_b64 = get_return_obj.json_body["response"]["key"]["key"]
             key = base64.b64decode(key_b64)
-            metadata, out_stream = EncryptionApi.decrypt_stream_with_metadata(key, in_stream)
+            _, out_stream = EncryptionApi.decrypt_stream_with_metadata(key, in_stream)
             out_stream.seek(0, 0)
             print("Printing \n")
             self.assertEqual(out_stream.read(), bytes("this is a test".encode('latin-1')))
@@ -557,7 +556,7 @@ class TestRestApi(unittest.TestCase):
         # Not really the encrypted hash, just the hash
         metadata["enc_asset_hash"] = hashlib.sha256(b"Nobody inspects the spammish repetition").hexdigest()
         metadata_json_orig = json.dumps(metadata, sort_keys=True, cls=type(self).magen.json_encoder)
-        metadata_json_ret, metadata_dict_ret = ContainerApi.create_meta_v2(metadata["asset_id"],
+        metadata_json_ret, _ = ContainerApi.create_meta_v2(metadata["asset_id"],
                                                                             timestamp=metadata["timestamp"],
                                                                             metadata_version=metadata["version"],
                                                                             revision_count=metadata["revision"],
@@ -574,7 +573,7 @@ class TestRestApi(unittest.TestCase):
         metadata["domain"] = "ps.box.com"
         # Not really the encrypted hash, just the hash
         metadata["enc_asset_hash"] = hashlib.sha256(b"Nobody inspects the spammish repetition").hexdigest()
-        metadata_json_orig, metadata_dict_orig = ContainerApi.create_meta_v2(metadata["asset_id"],
+        metadata_json_orig, _ = ContainerApi.create_meta_v2(metadata["asset_id"],
                                                                               timestamp=metadata["timestamp"],
                                                                               metadata_version=metadata["version"],
                                                                               revision_count=metadata["revision"],
@@ -590,7 +589,8 @@ class TestRestApi(unittest.TestCase):
         Creates multiple resources with POSTs and retrieves in bulk.
         """
         server_urls_instance = IngestionUrls()
-        current_path = os.path.dirname(os.path.realpath(__file__))
+        # We get it from magen_env
+        # current_path = os.path.dirname(os.path.realpath(__file__))
         full_path = current_path + "/test_up.txt"
         try:
             magen_file = open(full_path, 'w+')
@@ -603,8 +603,9 @@ class TestRestApi(unittest.TestCase):
                                          json_body=ks_post_resp_json_obj,
                                          response_object=None)
             mock = Mock(return_value=rest_return_obj)
+            # "http://localhost:5020/magen/ingestion/v2/upload/"
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
-                post_resp_obj = type(self).app.post("http://localhost:5020/magen/ingestion/v2/upload/", data=files,
+                post_resp_obj = type(self).app.post(server_urls_instance.upload_url_v2, data=files,
                                                     headers={'content-type': 'multipart/form-data'})
                 self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
                 post_resp_dict = json.loads(post_resp_obj.data.decode("utf-8"))
@@ -614,7 +615,8 @@ class TestRestApi(unittest.TestCase):
                 metadata_tag_src = metadata_tag.attrs["src"]
                 metadata_b64 = metadata_tag_src.split("base64,", 1)[1]
                 metadata_json = base64.b64decode(metadata_b64).decode("utf-8")
-                metadata_dict = json.loads(metadata_json)
+                # Debug
+                # metadata_dict = json.loads(metadata_json)
 
                 asset_tag = html_soup.find(id="asset")
                 asset_tag_src = asset_tag.attrs["src"]

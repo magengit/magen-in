@@ -20,6 +20,7 @@ class IngestionUrls(MagenUrls):
 
         self.__ingestion_server_url_host_port = ingestion_server_url_host_port
         self.__ingestion_server_base_url = "http://" + self.__ingestion_server_url_host_port + "/magen/ingestion/v1/"
+        self.__ingestion_server_base_url_v2 = "http://" + self.__ingestion_server_url_host_port + "/magen/ingestion/v2/"
 
         self.__assets_url = self.__ingestion_server_base_url + "assets/"
 
@@ -28,6 +29,8 @@ class IngestionUrls(MagenUrls):
         self.__logging_url = self.__ingestion_server_base_url + "logging_level/"
 
         self.__upload_url = self.__ingestion_server_base_url + "upload/"
+
+        self.__upload_url_v2 = self.__ingestion_server_base_url_v2 + "upload/"
 
         self.__single_asset_url = self.__asset_url + "{}/"
 
@@ -50,6 +53,14 @@ class IngestionUrls(MagenUrls):
     @ingestion_server_url_host_port.setter
     def ingestion_server_url_host_port(self, value):
         self.__ingestion_server_url_host_port = value
+
+    @property
+    def upload_url_v2(self):
+        return self.__upload_url_v2
+
+    @upload_url_v2.setter
+    def upload_url_v2(self, value):
+        self.__upload_url_v2 = value
 
     @property
     def upload_url(self):

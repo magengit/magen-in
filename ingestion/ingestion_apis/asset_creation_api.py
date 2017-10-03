@@ -33,9 +33,10 @@ class AssetCreationApi:
         create_result = AssetCreationApi.create_asset_from_json(
             asset_dict)
         if not create_result:
+            message = "Failed to create internal asset representation"
             logger.error(
-                "Failed to create asset internal representation")
-            return False, "Asset creation failed", 0
+                message)
+            return False, message, 0
 
         # Insert Asset
         success, message, count = AssetDbApi.insert(asset_dict)
