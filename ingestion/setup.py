@@ -15,11 +15,11 @@ setup(
     install_requires=[
         'aniso8601>=1.2.1',
         'beautifulsoup4>=4.6.0',
-        'consulate>=0.6.0',
         'coverage>=4.4.1',
         'flake8>=3.3.0',
         'Flask>=0.12.2',
         'Flask-Cors>=3.0.3',
+        'lxml>=4.1.0',
         'pycrypto>=2.6.1',
         'pymongo>=3.4.0',
         'pytest>=3.1.3',
