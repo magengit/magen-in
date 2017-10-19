@@ -27,7 +27,6 @@ class AssetDbApi(object):
         """
         db = MainDb.get_core_db_instance()
         db_return = db.asset_strategy.delete_all()
-        # delete_all_assets_success, number_of_deleted_assets = db.asset_strategy.delete_all()
         if db_return.success:
             return True, "All assets deleted"
         else:
@@ -77,20 +76,6 @@ class AssetDbApi(object):
             raise ValueError
         db_return = db.asset_strategy.delete(seed)
         return db_return.success, db_return.count, db_return.message
-
-    # @staticmethod
-    # def select_by_condition(seed):
-    #     """
-    #     Selects assets based on a condition
-    #     :param seed: Dictionary representing the matching parameters
-    #     :return: List of asset dictionaries
-    #     """
-    #     db = MainDb.get_core_db_instance()
-    #     cursor = db.asset_strategy.select_by_condition(seed)
-    #     result = list()
-    #     for c in cursor:
-    #         result.append(c)
-    #     return result
 
     @staticmethod
     def replace(asset_dict):

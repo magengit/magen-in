@@ -2,30 +2,32 @@ import base64
 import json
 import logging
 import os
+import shutil
+import re
+from shutil import copy2
 from http import HTTPStatus
 
 import magen_statistics_server.counters as counters
 from flask import request, flash, Blueprint
-from ingestion.ingestion_apis.encryption_api import EncryptionApi
 from magen_logger.logger_config import LogDefaults
 from magen_rest_apis.rest_client_apis import RestClientApis
 from magen_rest_apis.rest_server_apis import RestServerApis
 from magen_rest_apis.server_urls import ServerUrls
-from magen_utils_apis.datetime_api import datetime_parse_iso8601_string_to_utc
 from magen_statistics_api.metric_flavors import RestResponse, RestRequest
+from magen_utils_apis.datetime_api import datetime_parse_iso8601_string_to_utc
 from werkzeug.exceptions import BadRequest
 from werkzeug.utils import secure_filename
 
 from ingestion.ingestion_apis.asset_creation_api import AssetCreationApi
 from ingestion.ingestion_apis.asset_db_api import AssetDbApi
-from ingestion.ingestion_server.ingestion_urls import IngestionUrls
-from magen_logger.logger_config import LogDefaults
-
+from ingestion.ingestion_apis.container_api import ContainerApi
+from ingestion.ingestion_apis.encryption_api import EncryptionApi
+from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
+from ingestion.ingestion_server.ingestion_rest_api_v2 import ingestion_bp_v2
 
 project_root = os.path.dirname(__file__)
 template_path = os.path.join(project_root, 'templates')
 logger = logging.getLogger(LogDefaults.default_log_name)
-
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 UPLOAD_FOLDER = dir_path + '/magen_files'
@@ -60,24 +62,15 @@ ingestion_bp = Blueprint('ingestion', __name__, template_folder=template_path)
 configuration = Blueprint('configuration', __name__)
 
 
-# Configuration
-@configuration.route('/config/routes/', methods=["GET"])
-def url_configuration_routes():
-    ingestion_urls = IngestionUrls()
-    url_dict = ingestion_urls.get_urls()
-    result_dict = {
-        "source": INGESTION,
-        "active_urls": url_dict
-    }
-    return RestServerApis.respond(HTTPStatus.OK, "Get Active Urls", result_dict)
-
-
 # Assets
+
+@ingestion_bp_v2.route('/check/', methods=["GET"])
 @ingestion_bp.route('/check/', methods=["GET"])
 def heath_check():
     return "Check success"
 
 
+@ingestion_bp_v2.route('/logging_level/', methods=["PUT"])
 @ingestion_bp.route('/logging_level/', methods=["PUT"])
 def set_logging_level():
     try:
@@ -108,7 +101,7 @@ def do_set_logging_level(level):
     werkzeugLogger.setLevel(level=level)
     return True
 
-
+@ingestion_bp_v2.route('/assets/', methods=["DELETE"])
 @ingestion_bp.route('/assets/', methods=["DELETE"])
 def magen_delete_assets():
     """
@@ -146,80 +139,141 @@ def magen_get_assets():
     return RestServerApis.respond(status, "Get Assets", result)
 
 
-# Single Asset
+def download_file(asset_url, local_file_path):
+    """
+    Downloads or copy asset and stores it at local_file_path
+    :param asset_url: A HTTP or FILE URL
+    :param local_file_path: A file system path
+    :return: True or False
+    """
+    match = re.search('^file://(.*)', asset_url)
+    try:
+        if match:
+            file_path_in_json = match.group(1).split("localhost")
+            if file_path_in_json[0] != local_file_path:
+                copy2(file_path_in_json[0], local_file_path)
+            return True
+        else:
+            r = RestClientApis.http_get_and_check_success(asset_url, stream=True)
+            if not r.success:
+                logger.error("Could not access URL: %s", asset_url)
+                return False
+
+            with open(local_file_path, 'w+b') as f:
+                shutil.copyfileobj(r.raw, f)
+    except (OSError, IOError) as e:
+        # TODO need to remove copied file
+        logger.error("Could not save file: %s", str(e))
+        return False
+    return True
 
 
 # Creation of Asset
+@ingestion_bp_v2.route('/assets/asset/', methods=["POST"])
 @ingestion_bp.route('/assets/asset/', methods=["POST"])
 def magen_create_asset():
     """
-    REST API used to create a single asset on the database
+    REST API used to create a single asset on the database. It will retrieve
+    the asset specified in the dowload_url json attribute, encrypt and save in the
+    working directory. The file is not returned to the client, just the asset ID and
+    other information
+
     :return: A dictionary with the proper HTTP error code plus other metadata
     """
     counters.increment(RestRequest.POST, INGESTION)
-    success = False
+    asset_process_success = False
     asset_dict = None
-    # server_urls_instance = ServerUrls.get_instance()
     try:
         asset_dict = request.json["asset"][0]
         # Asset_dict is modified in place and there are no added internal
         # fields so at this point response and asset_dict should be the same.
-        success, message, count = AssetCreationApi.process_asset(asset_dict)
-        if success and count:
-            # If we do not pop the _id we can not JSONify it
-            asset_dict.pop('_id', None)
+        if "download_url" not in asset_dict:
+            raise BadRequest("donwload_url is mandatory")
+        download_url = asset_dict["download_url"]
+        file_name = download_url.split('/')[-1]
+        asset_dict["file_name"] = file_name
+        dst_file_path = os.path.join(IngestionGlobals().data_dir, file_name)
+        enc_file_path = dst_file_path + ".enc"
+        asset_dict["file_path"] = dst_file_path
+
+        # TODO: move to function
+
+        asset_process_success, message, count = AssetCreationApi.process_asset(asset_dict)
+        if asset_process_success and count:
+            asset_dict_json = dict(asset_dict)
+            # We need to remove keys that will break JSONnify
+            asset_dict_json.pop('_id', None)
+            # We also POP the local file path since it has local significance only
+            asset_dict_json.pop('file_path', None)
             # Since we created an asset, now we will request its key
-            # if server_urls_instance.key_server_url_host_port != server_urls_instance.disable_url_host_port:
-            #     try:
-            #         key_post_dict = {}
-            #         key_post_dict["asset_id"] = response["uuid"]
-            #         json_post = json.dumps(key_post_dict)
-            #         s = requests.Session()
-            #         post_response = s.post(
-            #             server_urls_instance.key_server_base_url + "asset_key/new/",
-            #             data=json_post,
-            #             headers=server_urls_instance.put_json_headers,
-            #             stream=False,
-            #             timeout=2.0)
-            #         key_info = post_response.json()
-            #         filtered_key_info = {k: key_info[k] for k in key_info.keys() & {'key', 'algorithm'}}
-            #         response["key_info"] = filtered_key_info
-            #     except (requests.exceptions.ConnectionError,
-            #             requests.exceptions.RequestException) as exc:
-            #         magen_logger.error(
-            #             'Failed to PUT configuration. Server might not be running. Error: %s',
-            #             exc)
-            #         return RestServerApis.respond("500", "Asset Creation", {
-            #             "success": False, "cause": "Key Server not running", "asset": None})
-            #     except (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout) as exc:
-            #         magen_logger.error(
-            #             'Failed to PUT configuration. Server too slow. Error: %s', exc)
-            #         return RestServerApis.respond("500", "Asset Creation", {
-            #             "success": False, "cause": "Key Server not running", "asset": None})
-            counters.increment(RestResponse.CREATED, INGESTION)
-            http_response = RestServerApis.respond(HTTPStatus.CREATED, "Create Asset", {
-                "success": success, "cause": HTTPStatus.CREATED.phrase, "asset": asset_dict})
-            http_response.headers['location'] = request.url + asset_dict['uuid'] + '/'
-            return http_response
+            server_urls_instance = ServerUrls().get_instance()
+            key_post_dict = {"asset": {"asset_id": asset_dict["uuid"]}, "format": "json", "ks_type": "local"}
+            json_post = json.dumps(key_post_dict)
+            post_return_obj = RestClientApis.http_post_and_check_success(server_urls_instance.key_server_asset_url,
+                                                                         json_post)
+            if post_return_obj.success:
+                key_info = post_return_obj.json_body
+                key_b64 = key_info["response"]["key"]
+                logger.debug("key_id :%s",key_info["response"]["key_id"])
+                key_iv_b64 = key_info["response"]["iv"]
+                # Decode key material we got from KS
+                iv_decoded = base64.b64decode(key_iv_b64)
+                logger.debug("decoded iv amd length: %s %s", iv_decoded, len(iv_decoded))
+                key_decoded = base64.b64decode(key_b64)
+                logger.debug("decoded key and length: %s %s", key_decoded, len(key_decoded))
+
+                success, message = ContainerApi.download_and_encrypt_file(download_url, enc_file_path, key_decoded, iv_decoded)
+                if not success:
+                    # TODO if something goes wrong we need to delete copy of file.
+                    raise Exception(message)
+
+                base64_file_path = enc_file_path + ".b64"
+                success, message = EncryptionApi.write_base64_file_from_file(enc_file_path, base64_file_path)
+                if not success:
+                    raise Exception(message)
+
+                b64_file_digest, message = EncryptionApi.create_sha256_from_file(enc_file_path)
+                if not b64_file_digest:
+                    raise Exception(message)
+
+                metadata_json, metadata_dict = ContainerApi.create_meta_v2(asset_dict["uuid"],
+                                                                           asset_dict["creation_timestamp"],
+                                                                           creator_domain="www.magen.io",
+                                                                           enc_asset_hash=b64_file_digest.hexdigest())
+                metadata_b64 = ContainerApi.b64encode_meta_v2(metadata_json)
+                metadata_b64_str = metadata_b64.decode("utf-8")
+                html_container_path = dst_file_path + ".html"
+                if not ContainerApi.create_html_file_container(metadata_dict, metadata_b64_str,
+                                                               base64_file_path, html_container_path):
+                    raise Exception("Failed to create container: {}".format(dst_file_path))
+
+                counters.increment(RestResponse.CREATED, INGESTION)
+                http_response = RestServerApis.respond(HTTPStatus.CREATED, "Create Asset", {
+                    "success": True, "cause": HTTPStatus.CREATED.phrase, "asset": asset_dict_json})
+                http_response.headers['location'] = request.url + asset_dict_json['uuid'] + '/'
+                return http_response
+            else:
+                raise Exception("Key Server problem")
         else:
             raise Exception(message)
-    except BadRequest as e:
-        # Most Likely a JSON violation
+    except (KeyError, IndexError, BadRequest) as e:
+        if asset_process_success:
+            AssetDbApi.delete_one(asset_dict['uuid'])
         counters.increment(RestResponse.BAD_REQUEST, INGESTION)
+        message = str(e)
         return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Create Asset", {
-            "success": success, "cause": HTTPStatus.BAD_REQUEST.phrase, "asset": asset_dict})
-    except (KeyError, IndexError) as e:
-        counters.increment(RestResponse.BAD_REQUEST, INGESTION)
-        return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Create Asset", {
-            "success": False, "cause": HTTPStatus.BAD_REQUEST.phrase, "asset": asset_dict})
+            "success": False, "cause": message, "asset": None})
     except Exception as e:
+        if asset_process_success:
+            AssetDbApi.delete_one(asset_dict['uuid'])
         counters.increment(RestResponse.INTERNAL_SERVER_ERROR, INGESTION)
-        message = e.args[0]
+        message = str(e)
         return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Create Asset", {
-            "success": success, "cause": message, "asset": asset_dict})
+            "success": False, "cause": message, "asset": None})
 
 
 # Update of Asset - not supported yet
+@ingestion_bp_v2.route('/assets/asset/<asset_uuid>/', methods=["PUT"])
 @ingestion_bp.route('/assets/asset/<asset_uuid>/', methods=["PUT"])
 def magen_update_asset(asset_uuid):
     """
@@ -261,6 +315,7 @@ def magen_update_asset(asset_uuid):
                                       result)
 
 
+@ingestion_bp_v2.route('/assets/asset/<asset_uuid>/', methods=["DELETE"])
 @ingestion_bp.route('/assets/asset/<asset_uuid>/', methods=["DELETE"])
 def magen_delete_asset(asset_uuid):
     """
@@ -295,6 +350,7 @@ def magen_delete_asset(asset_uuid):
             "success": False, "cause": e.args[0], "asset": asset_uuid})
 
 
+@ingestion_bp_v2.route('/assets/asset/<asset_uuid>/', methods=["GET"])
 @ingestion_bp.route('/assets/asset/<asset_uuid>/', methods=["GET"])
 def magen_get_asset(asset_uuid):
     """
@@ -353,20 +409,9 @@ def upload_file():
     if success and count:
         # Since we created an asset, now we will request its key
         server_urls_instance = ServerUrls().get_instance()
-        key_post_dict = {}
+        key_post_dict = {"asset": {"asset_id": asset_dict["uuid"]}, "format": "json", "ks_type": "local"}
 
-        # {
-        #       "asset": {
-        #         "asset_id": "5"
-        #       },
-        #       "format" : "json",
-        #       "ks_type": "awskms" or "local"
-        #
-        # }
 
-        key_post_dict["asset"] = {"asset_id": asset_dict["uuid"]}
-        key_post_dict["format"] = "json"
-        key_post_dict["ks_type"] = "local"
         json_post = json.dumps(key_post_dict)
         post_return_obj = RestClientApis.http_post_and_check_success(server_urls_instance.key_server_asset_url,
                                                                      json_post)
@@ -407,6 +452,7 @@ def upload_file():
                                    "file": encrypted_contents_b64.decode("utf-8")})
 
 
+@ingestion_bp_v2.route("/test_counters/increment/", methods=["GET"])
 @ingestion_bp.route("/test_counters/increment/", methods=["GET"])
 def test_counters_inc():
     counters.increment(RestResponse.OK, "Ingestion")
@@ -414,6 +460,7 @@ def test_counters_inc():
     return "Test"
 
 
+@ingestion_bp_v2.route("/test_counters/reset/", methods=["GET"])
 @ingestion_bp.route("/test_counters/reset/", methods=["GET"])
 def test_counters_reset():
     counters.reset(RestRequest.POST)
@@ -421,6 +468,7 @@ def test_counters_reset():
     return "Test"
 
 
+@ingestion_bp_v2.route("/test_counters/delete/", methods=["GET"])
 @ingestion_bp.route("/test_counters/delete/", methods=["GET"])
 def test_counters_delete():
     counters.delete(RestResponse.ACCEPTED)

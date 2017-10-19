@@ -6,10 +6,14 @@
 
 import argparse
 import sys
+import os
+from pathlib import Path
 
+import errno
 from magen_rest_apis.magen_app import MagenApp
 # If this is being run from workspace (as main module),
 # import dev/magen_env.py to add workspace package directories.
+
 src_ver = MagenApp.app_source_version(__name__)
 if src_ver:
     # noinspection PyUnresolvedReferences
@@ -28,7 +32,7 @@ from ingestion.ingestion_apis.asset_db_api import AssetDbApi
 from ingestion.ingestion_server.asset_rest_api import ingestion_bp, configuration
 from ingestion.ingestion_server.ingestion_app import MagenIngestionApp
 from ingestion.ingestion_mongo_apis.mongo_asset import MongoAsset
-
+from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
 from magen_utils_apis.domain_resolver import mongo_host_port, LOCAL_MONGO_LOCATOR
 from ingestion.ingestion_server.ingestion_rest_api_v2 import ingestion_bp_v2
 
@@ -61,9 +65,12 @@ def main(args):
                                             "\n\nnote:\n"
                                             "root privileges are required "))
 
-    parser.add_argument('--data-dir',
-                        help='Set directory for data files',
-                        default=None)
+    home_dir = str(Path.home())
+    ingestion_data_dir = os.path.join(home_dir, "magen_data", "ingestion")
+
+    parser.add_argument('--data-dir', default=ingestion_data_dir,
+                        help='Set directory for data files'
+                             'Default is %s' % ingestion_data_dir)
 
     parser.add_argument('--database', choices=['Mongo'], default="Mongo",
                         help='Database type such as Mongo or Cassandra '
@@ -127,6 +134,14 @@ def main(args):
 
     if args.key_server_ip_port is not None:
         server_urls_instance.set_key_server_url_host_port(args.key_server_ip_port)
+
+    ingestion_globals = IngestionGlobals()
+    ingestion_globals.data_dir = args.data_dir
+    try:
+        os.makedirs(args.data_dir)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
 
     print("\n\n\n\n ====== STARTING MAGEN INGESTION SERVER  ====== \n")
 

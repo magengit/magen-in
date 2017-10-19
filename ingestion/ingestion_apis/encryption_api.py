@@ -3,6 +3,9 @@
 #
 # Copyright (c) 2015 Cisco Systems, Inc. and others.  All rights reserved.
 #
+import base64
+import contextlib
+import hashlib
 import os
 import struct
 import io
@@ -10,6 +13,7 @@ import logging
 
 from Crypto.Cipher import AES
 from magen_logger.logger_config import LogDefaults
+logger = logging.getLogger(LogDefaults.default_log_name)
 
 
 __author__ = "paulq@cisco.com"
@@ -21,188 +25,127 @@ __status__ = "alpha"
 class EncryptionApi(object):
 
     @staticmethod
-    def encrypt_file(key, iv, in_filename, out_filename=None, chunksize=64*1024):  # pragma: no cover
-        """ Encrypts a file using AES (CBC mode) with the
-            given key.
-
-            key:
-                The encryption key - a string that must be
-                either 16, 24 or 32 bytes long. Longer keys
-                are more secure.
-
-            in_filename:
-                Name of the input file
-
-            out_filename:
-                If None, '<in_filename>.enc' will be used.
-
-            chunksize:
-                Sets the size of the chunk which the function
-                uses to read and encrypt the file. Larger chunk
-                sizes can be faster for some files and machines.
-                chunksize must be divisible by 16.
+    def encrypt_file_and_save(src_file_path, dst_file_path, key, key_iv, chunk_size=24 * 1024):
         """
-        if not out_filename:
-            out_filename = in_filename + '.enc'
+        Encrypts a file using AES (CBC mode) with the
+        given key and iv. The encryption is done as the source file is read,
+        therefore a single pass is needed.
 
-        print("encrypt: ", in_filename, "=>", out_filename)
+        :return: True or False
+        :rtype: boolean
+        :param key: Encryption key
+        :param key_iv: Initial Vector
+        :param src_file_path: The path of the source file
+        :param dst_file_path: The path of the destination file
+        :param chunk_size: The read size
+        :type key: bytes
+        :type key_iv: bytes
+        :type src_file_path: string
+        :type dst_file_path: string
+        :type chunk_size: int
+        """
+        logger = logging.getLogger(LogDefaults.default_log_name)
 
-        # iv = u''.join(chr(random.randint(0, 0xFF)) for i in range(16)).encode('latin-1')
-        # print("iv=", iv, " len(iv)=", len(iv))
+        try:
+            with open(src_file_path, 'rb') as src_file:
+                # move to end of file
+                file_size = src_file.seek(0, 2)
+                src_file.seek(0, 0)
+                with open(dst_file_path, 'wb+') as dst_file:
 
-        encryptor = AES.new(key, AES.MODE_CBC, iv)
-        filesize = os.path.getsize(in_filename)
+                    encryptor = AES.new(key, AES.MODE_CBC, key_iv)
+                    pad_byte = ' '.encode("ascii")
+                    file_size_str = str(file_size).rjust(20, '0')
+                    dst_file.write(file_size_str.encode("ascii"))
+                    dst_file.write(key_iv)
 
-        pad_byte = ' '.encode('latin-1')
-        with open(in_filename, 'rb') as infile:
-            with open(out_filename, 'wb') as outfile:
-                outfile.write(struct.pack('<Q', filesize))
-                outfile.write(iv)
-                print("filesize=", filesize, " pack=", struct.pack('<Q', filesize), " iv=", iv, "\n")
+                    while True:
+                        chunk = src_file.read(chunk_size)
+                        if len(chunk) == 0:
+                            break
+                        elif len(chunk) % 16 != 0:
+                            chunk += pad_byte * (16 - len(chunk) % 16)
+                            dst_file.write(encryptor.encrypt(chunk))
+
+                return True, None
+
+        except Exception as e:
+            message = "Failed to encrypt asset {}".format(src_file_path)
+            logger.error(message + str(e))
+            # Trick to not have to catch an exception within a exception
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(src_file_path)
+            return False, message
+
+    @staticmethod
+    def encrypt_uploaded_file_and_save(file_obj, dst_file_path, key, key_iv, chunk_size=24 * 1024):
+        """
+        Encrypts a file using AES (CBC mode) with the
+        given key and iv. The encryption is done as the source file is read,
+        therefore a single pass is needed.
+
+        file-obj is normally of FileStorage type that is a Flask type
+        used when receiving files:
+        http://werkzeug.pocoo.org/docs/0.11/datastructures/#werkzeug.datastructures.FileStorage
+
+        :return: True or False
+        :rtype: boolean
+        :param key: Encryption key
+        :param key_iv: Initial Vector
+        :param file_obj: The path of the source file
+        :param dst_file_path: The path of the destination file
+        :param chunk_size: The read size
+        :type key: bytes
+        :type key_iv: bytes
+        :type file_obj: FileStorage
+        :type dst_file_path: string
+        :type chunk_size: int
+        """
+        logger = logging.getLogger(LogDefaults.default_log_name)
+
+        try:
+            # move to end of file
+            file_size = file_obj.seek(0, 2)
+            file_obj.seek(0, 0)
+            with open(dst_file_path, 'wb+') as dst_file:
+
+                encryptor = AES.new(key, AES.MODE_CBC, key_iv)
+                pad_byte = ' '.encode("ascii")
+                file_size_str = str(file_size).rjust(20, '0')
+                dst_file.write(file_size_str.encode("ascii"))
+                dst_file.write(key_iv)
 
                 while True:
-                    chunk = infile.read(chunksize)
+                    chunk = file_obj.read(chunk_size)
                     if len(chunk) == 0:
                         break
                     elif len(chunk) % 16 != 0:
                         chunk += pad_byte * (16 - len(chunk) % 16)
-                    print("chunk=", chunk, "\n")
+                        dst_file.write(encryptor.encrypt(chunk))
 
-                    outfile.write(encryptor.encrypt(chunk))
+            return True, None
 
-    @staticmethod
-    def encrypt_stream(key=None, key_iv=None, file_obj=None, chunksize=24*1024):
-        """
-        Encrypts a byte stream using AES (CBC mode) with the
-        given key. Parameters are similar to encrypt_file,
-        with one difference: an out_stream will be returned
-        at the conclusion of the method (note that the out_stream
-        is already of type io.BytesIO() and will not be a byte array)
-
-        file-obj is normally of FileStorage type that is a Flask type
-        used when receiving files
-
-        :return: out_stream: Encrypted byte stream
-        :rtype: io.BytesIO
-        :param key: Encryption key
-        :param key_iv: Initial Vector
-        :param file_obj: A file-like object that supports file operations
-        :param chunksize: The read chunksize
-        :type key: bytes
-        :type key_iv: bytes
-        :type file_obj: FileStorage
-        :type file_obj: http://werkzeug.pocoo.org/docs/0.11/datastructures/#werkzeug.datastructures.FileStorage
-        :type chunksize: int
-        """
-
-        logger = logging.getLogger(LogDefaults.default_log_name)
-
-        # move to end of file
-        file_obj.seek(0,2)
-        # get file size without reading contents
-        file_size = file_obj.tell()
-        # move to beg of file
-        file_obj.seek(0,0)
-
-        out_stream = io.BytesIO()
-
-        io_size = out_stream.getbuffer().nbytes
-        logger.debug(
-            "encryption buffer size: %s", io_size)
-        # print("file-stream size: {}".format(io_size))
-
-        encryptor = AES.new(key, AES.MODE_CBC, key_iv)
-        # print("Filesize is ", file_size)
-
-        pad_byte = ' '.encode('utf-8')
-        out_stream.write(struct.pack('<Q', file_size))
-        out_stream.write(key_iv)
-        # print("filesize=", file_size, " pack=", struct.pack('<Q', file_size), " iv=", key_iv, "\n")
-
-        while True:
-            chunk = file_obj.read(chunksize)
-            if len(chunk) == 0:
-                break
-            elif len(chunk) % 16 != 0:
-                chunk += pad_byte * (16 - len(chunk) % 16)
-            # print("chunk=", chunk, "\n")
-
-            out_stream.write(encryptor.encrypt(chunk))
-
-        return out_stream
-
-    @staticmethod
-    def encrypt_stream_with_metadata(key=None, key_iv=None, file_obj=None, metadata_byte_array=None, chunksize=24*1024):
-
-        """
-        Encrypts a byte stream using AES (CBC mode) with the
-        given key. Parameters are similar to encrypt_file,
-        with one difference: an out_stream will be returned
-        at the conclusion of the method (note that the out_stream
-        is already of type io.BytesIO() and will not be a byte array)
-
-        file-obj is normally of FileStorage type that is a Flask type
-        used when receiving files
-
-        NOTE: FIRST 256 BYTES ARE RESERVED FOR METADATA AND ARE LEFT
-        IN THE CLEAR
-
-        :rtype: io.BytesIO()
-        :param key: key in bytes
-        :param iv: iv in bytes
-        :param file_obj: A file-like object that supports file operations
-        :param metadata_byte_array: metadata as byte array
-        :param chunksize:
-        :return: out_stream: Encrypted byte stream
-
-        """
-
-        # move to end of file
-        file_obj.seek(0,2)
-        # get file size without reading contents
-        file_size = file_obj.tell()
-        # move to beg of file
-        file_obj.seek(0,0)
-
-        out_stream = io.BytesIO()
-        out_stream.write(metadata_byte_array)
-
-        # Debug
-        # io_size = out_stream.getbuffer().nbytes
-        # print("file-stream size: {}".format(io_size))
-
-        encryptor = AES.new(key, AES.MODE_CBC, key_iv)
-        # print("Filesize is ", file_size)
-
-        pad_byte = ' '.encode('utf-8')
-        out_stream.write(struct.pack('<Q', file_size))
-        out_stream.write(key_iv)
-        # print("filesize=", file_size, " pack=", struct.pack('<Q', file_size), " iv=", key_iv, "\n")
-
-        while True:
-            chunk = file_obj.read(chunksize)
-            if len(chunk) == 0:
-                break
-            elif len(chunk) % 16 != 0:
-                chunk += pad_byte * (16 - len(chunk) % 16)
-            # print("chunk=", chunk, "\n")
-
-            out_stream.write(encryptor.encrypt(chunk))
-
-        return out_stream
+        except Exception as e:
+            message = "Failed to encrypt asset {}".format(file_obj)
+            logger.error(message + str(e))
+            # Trick to not have to catch an exception within a exception
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(file_obj)
+            return False, message
 
     @staticmethod
     def decrypt_file(key, in_filename, out_filename=None, chunksize=24*1024):  # pragma: no cover
-        """ Decrypts a file using AES (CBC mode) with the
-            given key. Parameters are similar to encrypt_file,
-            with one difference: out_filename, if not supplied
-            will be in_filename without its last extension
-            (i.e. if in_filename is 'aaa.zip.enc' then
-            out_filename will be 'aaa.zip')
-            :param key:
-            :param in_filename:
-            :param out_filename:
-            :param chunksize:
+        """
+        Decrypts a file using AES (CBC mode) with the
+        given key. Parameters are similar to encrypt_file,
+        with one difference: out_filename, if not supplied
+        will be in_filename without its last extension
+        (i.e. if in_filename is 'aaa.zip.enc' then
+        out_filename will be 'aaa.zip')
+        :param key:
+        :param in_filename:
+        :param out_filename:
+        :param chunksize:
         """
         if not out_filename:
             out_filename = os.path.splitext(in_filename)[0]
@@ -271,11 +214,14 @@ class EncryptionApi(object):
     def retrieve_metadata(in_stream):
         """
         Reads metadata from stream of bytes and returns the asset_id and source separately
-        :param in_stream:
+        :param in_stream: bytes
         :return:
         """
-        metadata = in_stream.read(256)
-        metadata = metadata.decode('utf-8')
+        if isinstance(in_stream, bytes):
+            metadata = in_stream[0:256]
+            metadata = metadata.decode('utf-8')
+        else:
+            metadata = in_stream.read(256)
         metadata = metadata.split(",")
         uuid = metadata[0]
         source = metadata[1]
@@ -350,6 +296,126 @@ class EncryptionApi(object):
             metadata.extend(map(ord, padding))
         return metadata
 
+    @staticmethod
+    def create_sha256_from_file(file_path, chunk_size=8190):
+        """
+        Progressively creates a sha256 of a file. It works for large
+        files it is done in chunks
+        :param file_path:
+        :param chunk_size:
+        :return: sha256 or NOne
+        """
+        try:
+            sha256 = hashlib.sha256()
+            with open(file_path, "rb") as enc_file:
+                while True:
+                    data = enc_file.read(chunk_size)
+                    if not data:
+                        break
+                    sha256.update(data)
+            return sha256, None
+        except Exception as e:
+            message = "Failed to create digest of file {}".format(file_path)
+            logger.error(message + str(e))
+            return None, message
+
+    @staticmethod
+    def write_base64_file_from_file(src_file_name, b64_file_name, chunk_size=8190):
+        """
+        This function reads a source file in chunks, encodes in base64 format and writes to a
+        destination file. Since it does things in chunks, it handles large files.
+        run out of memory
+        :param src_file_name: source file name
+        :param b64_file_name: destination file name
+        :param chunk_size: Encoding chunk size
+        :type src_file_name: string
+        :param b64_file_name: string
+        :param chunk_size: int
+        :return: (<True | False>) and message
+        """
+        chunk_size -= chunk_size % 3  # align to multiples of 3
+        try:
+            with open(src_file_name, 'rb') as fin, open(b64_file_name, 'wb') as fout:
+                while True:
+                    bin_data = fin.read(chunk_size)
+                    if not bin_data:
+                        break
+                    b64_data = base64.b64encode(bin_data)
+                    fout.write(b64_data)
+            return True, None
+        except Exception as e:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(b64_file_name)
+            message = "Failed to base64 encode file: {}".format(src_file_name)
+            logger.error(message + str(e))
+            return False, message
+
+    @staticmethod
+    def write_file_from_base64_file(b64_fname, dst_fname, chunk_size=10920):
+        """
+        This function reads a source file in chunks, decodes from base64 format and writes to a
+        destination file. Since it does things in chunks, it handles large files.
+        run out of memory
+        :param src_fname: source file name
+        :param b64_fname: destination file name
+        :param chunk_size: Decoding chunk size
+        :type src_fname: string
+        :param b64_fname: string
+        :param chunk_size: int
+        :return:
+        """
+        try:
+            chunk_size -= chunk_size % 4  # align to multiples of 4
+            with open(b64_fname, 'r') as fin, open(dst_fname, 'wb') as fout:
+                while True:
+                    b64_data = fin.read(chunk_size)
+                    if not b64_data:
+                        break
+                    bin_data = base64.b64decode(b64_data)
+                    fout.write(bin_data)
+            return True
+        except Exception as e:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(dst_fname)
+            message = "Failed to encrypt asset {}".format(b64_fname)
+            logger.error(message + str(e))
+            return False
+
+    @staticmethod
+    def decrypt_file_v2(key, in_filename, out_filename=None, chunksize=24*1024):  # pragma: no cover
+        """
+        Decrypts a file using AES (CBC mode) with the
+        given key. Parameters are similar to encrypt_file,
+        with one difference: out_filename, if not supplied
+        will be in_filename without its last extension
+        (i.e. if in_filename is 'aaa.zip.enc' then
+        out_filename will be 'aaa.zip')
+        :param key:
+        :param in_filename:
+        :param out_filename:
+        :param chunksize:
+        """
+        if not out_filename:
+            out_filename = os.path.splitext(in_filename)[0]
+
+        try:
+            with open(in_filename, 'rb') as infile:
+                origsize = int(infile.read(20))
+                iv = infile.read(16)
+                decryptor = AES.new(key, AES.MODE_CBC, iv)
+
+                with open(out_filename, 'wb') as outfile:
+                    while True:
+                        chunk = infile.read(chunksize)
+                        if len(chunk) == 0:
+                            break
+                        outfile.write(decryptor.decrypt(chunk))
+                    outfile.truncate(origsize)
+            return out_filename
+        except Exception as e:
+            message = "Failed to decrypt file {}".format(in_filename)
+            logger.error(message + str(e))
+            return None
 
 
 

@@ -11,7 +11,7 @@ if pip_version < 901:
 
 setup(
     name='magen_ingestion_service',
-    version='1.0a2',
+    version='1.1a2',
     install_requires=[
         'aniso8601>=1.2.1',
         'beautifulsoup4>=4.6.0',
@@ -27,12 +27,11 @@ setup(
         'responses>=0.5.1',
         'Sphinx>=1.6.3',
         'wheel>=0.30.0a0',
-        'magen_logger==1.0a1',
-        'magen_utils==1.0a1',
-        'magen_test_utils==1.0a1',
-        'magen_mongo==1.0a1',
-        'magen_rest_service==1.0a1',
-        'magen_statistics_service==1.0a1'
+        'magen_logger>=1.0a1',
+        'magen_utils>=1.2a2',
+        'magen_mongo>=1.0a1',
+        'magen_rest_service>=1.2a2',
+        'magen_statistics_service>=1.0a1'
       ],
     scripts=['ingestion_server/ingestion_server.py'],
     package_dir={'': '..'},
@@ -44,9 +43,9 @@ setup(
     },
     test_suite='tests',
     url='',
-    license='Proprietary License',
+    license='Apache',
     author='Reinaldo Penno',
-    author_email='repenno@cisco.com',
+    author_email='rapenno@gmail.com',
     description='Ingestion MicroService Package',
     classifiers=[
         # How mature is this project? Common values are

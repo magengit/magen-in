@@ -16,7 +16,8 @@ MAGEN_SINGLE_ASSET_FINANCE_POST = """
       "resource_group": "roadmap",
       "resource_id": 3,
       "client_uuid": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
-      "host": "sjc-repenno-nitro10.cisco.com"
+      "host": "sjc-repenno-nitro10.cisco.com",
+      "download_url": "http:///tmp/test_up.txt"
     }
   ]
 }"""
@@ -38,12 +39,14 @@ MAGEN_SINGLE_ASSET_FINANCE_POST_BADREQUEST = """
     {
       "name": "finance doc",
       "resource_group": "roadmap",
-      "resource_id": a,
+      "resource_id": a
       "client_uuid": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
-      "host": "sjc-repenno-nitro10.cisco.com"
+      "host": "sjc-repenno-nitro10.cisco.com",
+      "download_url": "http:///tmp/test_up.txt"
     }
   ]
-}"""
+}
+"""
 
 
 MAGEN_SINGLE_ASSET_FINANCE_POST_INDEXERROR = """
@@ -121,3 +124,35 @@ MAGEN_INGESTION_URLS_RESP_DICT = """{
   "status": 200,
   "title": "Get Active Urls"
 }"""
+
+# download_url is filled by the running code as appropriate
+
+MAGEN_INGESTION_POST_WITH_EMPTY_DOWNLOAD_URL = """
+{
+    "asset": [
+        {
+            "name": "finance doc",
+            "resource_group": "roadmap",
+            "resource_id": 3,
+            "client_uuid": "<client_id>",
+            "host": "sjc-repenno-nitro10.cisco.com",
+            "download_url": ""
+        }
+    ]
+}
+"""
+
+MAGEN_INGESTION_POST_WITH_FILE_DOWNLOAD_URL = """
+{
+    "asset": [
+        {
+            "name": "finance doc",
+            "resource_group": "roadmap",
+            "resource_id": 3,
+            "client_uuid": "<client_id>",
+            "host": "sjc-repenno-nitro10.cisco.com",
+            "download_url": "http:///tmp/test_up.txt"
+        }
+    ]
+}
+"""
