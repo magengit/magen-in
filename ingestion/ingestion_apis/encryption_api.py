@@ -7,9 +7,8 @@ import base64
 import contextlib
 import hashlib
 import os
-import struct
-import io
 import logging
+from time import time
 
 from Crypto.Cipher import AES
 from magen_logger.logger_config import LogDefaults
@@ -65,7 +64,7 @@ class EncryptionApi(object):
                             break
                         elif len(chunk) % 16 != 0:
                             chunk += pad_byte * (16 - len(chunk) % 16)
-                            dst_file.write(encryptor.encrypt(chunk))
+                        dst_file.write(encryptor.encrypt(chunk))
 
                 return True, None
 
@@ -121,7 +120,7 @@ class EncryptionApi(object):
                         break
                     elif len(chunk) % 16 != 0:
                         chunk += pad_byte * (16 - len(chunk) % 16)
-                        dst_file.write(encryptor.encrypt(chunk))
+                    dst_file.write(encryptor.encrypt(chunk))
 
             return True, None
 
@@ -176,6 +175,66 @@ class EncryptionApi(object):
             message = "Failed to create digest of file {}".format(file_path)
             logger.error(message + str(e))
             return None, message
+
+    @staticmethod
+    def encrypt_b64encode_file_and_save(src_file_path, dst_file_path, key, key_iv, chunk_size=9600):
+        """
+        Encrypts a file using AES (CBC mode) with the
+        given key and iv. The encryption is done as the source file is read,
+        therefore a single pass is needed.
+
+        :return: True or False
+        :rtype: boolean
+        :param key: Encryption key
+        :param key_iv: Initial Vector
+        :param src_file_path: The path of the source file
+        :param dst_file_path: The path of the destination file
+        :param chunk_size: The read size
+        :type key: bytes
+        :type key_iv: bytes
+        :type src_file_path: string
+        :type dst_file_path: string
+        :type chunk_size: int
+        """
+        logger = logging.getLogger(LogDefaults.default_log_name)
+        chunk_size -= chunk_size % 48  # align to multiples of 48
+
+        try:
+            sha256 = hashlib.sha256()
+            with open(src_file_path, 'rb') as src_file:
+                # move to end of file
+                file_size = src_file.seek(0, 2)
+                src_file.seek(0, 0)
+                with open(dst_file_path, 'wb+') as dst_file:
+
+                    encryptor = AES.new(key, AES.MODE_CBC, key_iv)
+                    pad_byte = ' '.encode("utf-8")
+                    file_size_str = str(file_size).rjust(20, '0')
+                    file_size = file_size_str.encode("ascii")
+                    dst_file.write(file_size)
+                    dst_file.write(key_iv)
+                    sha256.update(file_size)
+                    sha256.update(key_iv)
+
+                    while True:
+                        chunk = src_file.read(chunk_size)
+                        if len(chunk) == 0:
+                            break
+                        elif len(chunk) % 48 != 0:
+                            chunk += pad_byte * (48 - len(chunk) % 48)
+                        b64_data = base64.b64encode(encryptor.encrypt(chunk))
+                        dst_file.write(b64_data)
+                        sha256.update(b64_data)
+
+                return True, None, sha256
+
+        except Exception as e:
+            message = "Failed to encrypt asset {}".format(src_file_path)
+            logger.error(message + str(e))
+            # Trick to not have to catch an exception within a exception
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(src_file_path)
+            return False, message, None
 
     @staticmethod
     def write_base64_file_from_file(src_file_name, b64_file_name, chunk_size=8190):
@@ -240,7 +299,7 @@ class EncryptionApi(object):
             return False
 
     @staticmethod
-    def decrypt_file_v2(key, in_filename, out_filename=None, chunksize=24*1024):  # pragma: no cover
+    def decrypt_file_v2(key, in_filename, out_filename=None, chunksize=24*1024):
         """
         Decrypts a file using AES (CBC mode) with the
         given key. Parameters are similar to encrypt_file,
@@ -275,6 +334,40 @@ class EncryptionApi(object):
             logger.error(message + str(e))
             return None
 
+    @staticmethod
+    def b64decode_decrypt_file_and_save(key, in_filename, out_filename, chunk_size=9600):
+        """
+        Decodes and decrypts a file using AES (CBC mode) with the
+        given key.
+        :param key: Encryption key
+        :param in_filename: Input filename
+        :param out_filename:
+        :param chunk_size: Read chunk size
+        """
 
+        try:
+            chunk_size -= chunk_size % 48  # align to multiples of 4
+            sha256 = hashlib.sha256()
+            with open(in_filename, 'rb') as infile:
+                file_size = infile.read(20)
+                sha256.update(file_size)
+                origsize = int(file_size.decode("utf-8"))
+                iv = infile.read(16)
+                sha256.update(iv)
+                decryptor = AES.new(key, AES.MODE_CBC, iv)
 
+                with open(out_filename, 'wb') as outfile:
+                    while True:
+                        chunk = infile.read(chunk_size)
+                        if len(chunk) == 0:
+                            break
+                        sha256.update(chunk)
+                        enc_data = base64.b64decode(chunk)
+                        outfile.write(decryptor.decrypt(enc_data))
+                    outfile.truncate(origsize)
+            return True, None, sha256
+        except Exception as e:
+            message = "Failed to decrypt file {}".format(in_filename)
+            logger.error(message + str(e))
+            return False, message, None
 

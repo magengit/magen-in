@@ -26,43 +26,6 @@ __status__ = "alpha"
 
 
 class ContainerApi(object):
-    @staticmethod
-    def create_html_container(metadata_dict, metab64_str, assetb64_str):
-        """
-        Creates a HTML container for the Asset
-        
-        :return: HTML document as string
-        :rtype: string
-        :param metadata_dict: A dictionary that contains the asset metadata
-        :param assetb64_str: Asset base64 encoded and converted to string
-        :param metab64_str: Metadata base64 encoded and converted to string
-        :type assetb64_str: string
-        :type metab64_str: string
-        :type metadata_dict: dict
-        """
-        html_container = io.StringIO()
-        html_container.write('<!DOCTYPE html>\n')
-        html_container.write('<head>\n')
-        html_container.write('<meta charset="utf-8">\n')
-        html_container.write('<title>Magen File</title>\n')
-        html_container.write('</head>\n')
-        html_container.write('<body>\n')
-        html_container.write(
-            '<p style="text-align:center"> <br><br><br><b>To preview this file, use the Magen Viewer.</b></p>\n')
-        html_container.write('<p hidden>{}</p>\n'.format(metadata_dict["asset_id"]))
-        html_container.write('<p hidden>{}</p>\n'.format(metadata_dict["timestamp"]))
-        html_container.write('<p hidden>{}</p>\n'.format(metadata_dict["version"]))
-        html_container.write('<p hidden>{}</p>\n'.format(metadata_dict["revision"]))
-        html_container.write('<p hidden>{}</p>\n'.format(metadata_dict["domain"]))
-        html_container.write('<p hidden>{}</p>\n'.format(metadata_dict["enc_asset_hash"]))
-        html_container.write(
-            '<img hidden alt="Metadata" id="metadata" src="data:image/png;base64,{}" />\n'.format(metab64_str))
-        html_container.write(
-            '<img hidden alt="Asset" id="asset" src="data:image/png;base64,{}" />\n'.format(assetb64_str))
-        html_container.write('</body>\n')
-        html_container.write('</html>\n')
-        html_container.seek(0, 0)
-        return html_container.read()
 
     @staticmethod
     def create_html_file_container(metadata_dict, metab64_str, enc_b64_file, html_container_file, chunk_size=1024):

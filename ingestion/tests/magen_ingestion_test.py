@@ -7,10 +7,12 @@ import unittest
 
 # noinspection PyUnresolvedReferences
 import uuid
+from datetime import datetime
 from http import HTTPStatus
 from unittest.mock import Mock, patch
+from pathlib import Path
 
-from datetime import datetime
+from time import time
 from Crypto import Random
 from Crypto.Cipher import AES
 from magen_rest_apis.server_urls import ServerUrls
@@ -37,7 +39,7 @@ from ingestion.ingestion_server.ingestion_app import MagenIngestionApp
 from ingestion.ingestion_mongo_apis.mongo_asset import MongoAsset
 from ingestion.tests.magen_ingestion_test_messages import MAGEN_SINGLE_ASSET_FINANCE_POST, \
     MAGEN_SINGLE_ASSET_FINANCE_PUT, MAGEN_SINGLE_ASSET_FINANCE_GET_RESP, \
-    MAGEN_INGESTION_URLS_RESP_DICT, MAGEN_LOGGING_LEVEL, MAGEN_LOGGING_LEVEL_FAIL, \
+    MAGEN_LOGGING_LEVEL, MAGEN_LOGGING_LEVEL_FAIL, \
     MAGEN_SINGLE_ASSET_FINANCE_POST_BADREQUEST, MAGEN_INGESTION_POST_WITH_EMPTY_DOWNLOAD_URL, \
     MAGEN_INGESTION_POST_WITH_FILE_DOWNLOAD_URL
 
@@ -780,3 +782,55 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+
+    def test_Create_Asset_with_Large_File_URL(self):
+        """
+        Creates an asset with a file URL that will be used to access the actual file. This test
+        needs KS to be running.
+        """
+        file_name = "test_up.txt"
+        # file_name = "mi4.mkv"
+        src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        # home_dir = str(Path.home())
+        # src_file_full_path = os.path.join(home_dir, "magen_data", "ingestion", file_name)
+        magen_file = open(src_file_full_path, 'w+')
+        magen_file.write("this is a test")
+        magen_file.close()
+        try:
+            # post_json = json.loads(MAGEN_INGESTION_POST_WITH_EMPTY_DOWNLOAD_URL)
+            # post_json["asset"][0]["download_url"] = "file://" + src_file_full_path
+            # post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_asset_url,
+            #                                     data=json.dumps(post_json),
+            #                                     headers={'content-type': 'application/json'})
+            # # "http://localhost:5020/magen/ingestion/v2/upload/"
+            # self.assertEqual(post_resp_obj.status_code, HTTPStatus.CREATED)
+
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            key = base64.b64decode(ks_post_resp_json_obj["response"]["key"])
+            key_iv = base64.b64decode(ks_post_resp_json_obj["response"]["iv"])
+
+            enc_base64_file_path = src_file_full_path + ".enc.b64"
+            star_time = time()
+            success, message, sha256in = EncryptionApi.encrypt_b64encode_file_and_save(src_file_full_path, enc_base64_file_path, key, key_iv)
+            end_time = time()
+            self.assertTrue(success)
+
+            out_file_full_path = src_file_full_path + ".out"
+
+            success, message, sha256out = EncryptionApi.b64decode_decrypt_file_and_save(key, enc_base64_file_path, out_file_full_path)
+            self.assertTrue(success)
+            self.assertEqual(sha256in.hexdigest(), sha256out.hexdigest())
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+
