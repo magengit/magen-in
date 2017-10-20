@@ -30,7 +30,7 @@ setup(
         'magen_utils>=1.2a2',
         'magen_mongo>=1.0a1',
         'magen_rest_service>=1.2a2',
-        'magen_statistics_service>=1.0a1'
+        'magen_statistics_service>=1.1a1'
       ],
     scripts=['ingestion_server/ingestion_server.py'],
     package_dir={'': '..'},
