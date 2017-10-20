@@ -14,7 +14,6 @@ setup(
     version='1.1a2',
     install_requires=[
         'aniso8601>=1.2.1',
-        'beautifulsoup4>=4.6.0',
         'coverage>=4.4.1',
         'flake8>=3.3.0',
         'Flask>=0.12.2',
@@ -31,8 +30,7 @@ setup(
         'magen_utils>=1.2a2',
         'magen_mongo>=1.0a1',
         'magen_rest_service>=1.2a2',
-        'magen_statistics_service>=1.0a1',
-        'magen_test_utils==1.0a1'
+        'magen_statistics_service>=1.0a1'
       ],
     scripts=['ingestion_server/ingestion_server.py'],
     package_dir={'': '..'},

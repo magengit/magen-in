@@ -14,6 +14,7 @@ from datetime import datetime
 from Crypto import Random
 from Crypto.Cipher import AES
 from magen_rest_apis.server_urls import ServerUrls
+from magen_utils_apis import compare_utils
 from magen_utils_apis.datetime_api import SimpleUtc
 
 from ingestion.ingestion_apis.container_api import ContainerApi
@@ -24,7 +25,6 @@ from magen_mongo_apis.mongo_core_database import MongoCore
 from magen_mongo_apis.mongo_utils import MongoUtils
 from magen_rest_apis.rest_client_apis import RestClientApis
 from magen_rest_apis.rest_return_api import RestReturn
-from magen_test_utils_apis.test_magen_object_apis import TestMagenObjectApis
 from magen_utils_apis.domain_resolver import mongo_host_port
 
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
@@ -293,7 +293,7 @@ class TestRestApi(unittest.TestCase):
             get_resp_obj = self.app.get(location_header)
             get_resp_json = json.loads(get_resp_obj.data.decode("utf-8"))
             self.assertEqual(get_resp_obj.status_code, HTTPStatus.OK)
-            success, _, _ = TestMagenObjectApis.compare_json(get_resp_json,
+            success = compare_utils.default_full_compare_dict(get_resp_json,
                                                              json.loads(MAGEN_SINGLE_ASSET_FINANCE_GET_RESP))
             self.assertTrue(success)
         except (OSError, IOError) as e:
