@@ -70,8 +70,8 @@ before_script:
   - printenv
 
 script:
-  - if [ "$TO_BUILD" = "NATIVE" ]; then make test_travis; fi
-  - if [ "$TO_BUILD" = "DOCKER" ]; then make test_docker; fi
+  - travis_wait 30 if [ "$TO_BUILD" = "NATIVE" ]; then make test_travis; fi
+  - travis_wait 30 if [ "$TO_BUILD" = "DOCKER" ]; then make test_docker; fi
 
 after_success:
   - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then
