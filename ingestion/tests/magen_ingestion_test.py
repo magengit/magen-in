@@ -296,7 +296,7 @@ class TestRestApi(unittest.TestCase):
             get_resp_json = json.loads(get_resp_obj.data.decode("utf-8"))
             self.assertEqual(get_resp_obj.status_code, HTTPStatus.OK)
             success = compare_utils.default_full_compare_dict(get_resp_json,
-                                                             json.loads(MAGEN_SINGLE_ASSET_FINANCE_GET_RESP))
+                                                              json.loads(MAGEN_SINGLE_ASSET_FINANCE_GET_RESP))
             self.assertTrue(success)
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
@@ -785,41 +785,37 @@ class TestRestApi(unittest.TestCase):
 
     def test_Create_Asset_with_Large_File_URL(self):
         """
-        Creates an asset with a file URL that will be used to access the actual file. This test
-        needs KS to be running.
+        Creates an large asset, encrypts, encodes and calulates digest. Perform reverse operation and checks
+        for integrity and equality
         """
         file_name = "test_up.txt"
-        # file_name = "mi4.mkv"
         src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
         # home_dir = str(Path.home())
         # src_file_full_path = os.path.join(home_dir, "magen_data", "ingestion", file_name)
-        magen_file = open(src_file_full_path, 'w+')
-        magen_file.write("this is a test")
-        magen_file.close()
+        t0 = time()
         try:
-            # post_json = json.loads(MAGEN_INGESTION_POST_WITH_EMPTY_DOWNLOAD_URL)
-            # post_json["asset"][0]["download_url"] = "file://" + src_file_full_path
-            # post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_asset_url,
-            #                                     data=json.dumps(post_json),
-            #                                     headers={'content-type': 'application/json'})
-            # # "http://localhost:5020/magen/ingestion/v2/upload/"
-            # self.assertEqual(post_resp_obj.status_code, HTTPStatus.CREATED)
+            # Creates a 30 GB file
+            chunk = 'a' * 10 ** 9
+            with open(src_file_full_path, "wb") as magen_data:
+                for i in range(30):
+                    magen_data.write(chunk.encode("ascii"))
 
             ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
             key = base64.b64decode(ks_post_resp_json_obj["response"]["key"])
             key_iv = base64.b64decode(ks_post_resp_json_obj["response"]["iv"])
 
             enc_base64_file_path = src_file_full_path + ".enc.b64"
-            star_time = time()
-            success, message, sha256in = EncryptionApi.encrypt_b64encode_file_and_save(src_file_full_path, enc_base64_file_path, key, key_iv)
-            end_time = time()
+            success, message, sha256in = EncryptionApi.encrypt_b64encode_file_and_save(src_file_full_path,
+                                                                                       enc_base64_file_path, key,
+                                                                                       key_iv)
             self.assertTrue(success)
-
             out_file_full_path = src_file_full_path + ".out"
-
-            success, message, sha256out = EncryptionApi.b64decode_decrypt_file_and_save(key, enc_base64_file_path, out_file_full_path)
+            success, message, sha256out = EncryptionApi.b64decode_decrypt_file_and_save(key, enc_base64_file_path,
+                                                                                        out_file_full_path)
             self.assertTrue(success)
             self.assertEqual(sha256in.hexdigest(), sha256out.hexdigest())
+            d = int(time() - t0)
+            print("Large File Test duration: {} s.".format(d))
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
