@@ -12,6 +12,8 @@ services:
       - magen_mongo:magen_mongo
     depends_on:
       - magen_mongo
+    environment:
+     - TRAVIS
   magen_mongo:
     image: mongo:latest
     container_name: magen_mongo

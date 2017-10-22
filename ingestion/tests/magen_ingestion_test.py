@@ -783,7 +783,7 @@ class TestRestApi(unittest.TestCase):
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
 
-    @unittest.skipIf(os.environ.get('TRAVIS'), "not supported CI")
+    @unittest.skipIf(os.environ.get('TRAVIS'), "not supported in CI")
     def test_Create_Asset_with_Large_File_URL(self):
         """
         Creates an large asset, encrypts, encodes and calulates digest. Perform reverse operation and checks
