@@ -3,18 +3,19 @@ import contextlib
 import json
 import logging
 import sys
-import io
 import mmap
 import re
 import os
 
 import requests
 from lxml import etree
+from datetime import datetime
 
 from magen_rest_apis.magen_app import CustomJSONEncoder
 from magen_logger.logger_config import LogDefaults
+from magen_utils_apis.datetime_api import SimpleUtc
 
-from ingestion.ingestion_apis.encryption_api import EncryptionApi
+from ingestion.ingestion_apis.encryption_api import EncryptionApi, FILE_LEN_SIZE, IV_LEN_SIZE, B64_FILE_IV_SIZE
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
 
 logger = logging.getLogger(LogDefaults.default_log_name)
@@ -26,9 +27,9 @@ __status__ = "alpha"
 
 
 class ContainerApi(object):
-
     @staticmethod
-    def create_html_file_container(metadata_dict, metab64_str, enc_b64_file, html_container_file, chunk_size=1024):
+    def create_html_file_container_from_file(metadata_dict, metab64_str, enc_b64_file, html_container_file,
+                                             chunk_size=1024):
         """
         Creates a HTML container file for the Asset
         :return: True or False
@@ -75,6 +76,10 @@ class ContainerApi(object):
                 html_container.write(
                     '<p hidden="true" data-enc-b64-file-size="true">{}</p>\n'.format(enc_b64_file_size).encode("utf-8"))
                 html_container.write(
+                    '<p hidden="true" initialization-vector="true">{}</p>\n'.format(metadata_dict["iv"]).encode("utf-8"))
+                html_container.write(
+                    '<p hidden="true" file-size="true">{}</p>\n'.format(metadata_dict["file_size"]).encode("utf-8"))
+                html_container.write(
                     '<img hidden="true" data-metadata="true" alt="Metadata" id="metadata" src="data:image/png;base64,'
                     '{}" />\n'.format(metab64_str).encode("utf-8"))
                 # html_container.write(
@@ -90,7 +95,7 @@ class ContainerApi(object):
                     html_container.write(buf)
 
                 html_container.write(
-                    '" />\n'.encode("ascii"))
+                    '" />\n'.encode("utf-8"))
                 html_container.write('</body>\n'.encode("utf-8"))
                 html_container.write('</html>\n'.encode("utf-8"))
                 return True
@@ -102,37 +107,41 @@ class ContainerApi(object):
             return False
 
     @staticmethod
-    def create_meta_v2(asset_id, timestamp=None, metadata_version=1, revision_count=1, creator_domain=None,
-                       enc_asset_hash=None):
+    def create_meta_v2(asset_dict, metadata_version=1, revision_count=1, creator_domain=None,
+                       enc_asset_hash=None, iv=None):
         """
 
         Metadata creation for the v2 APIs.
 
+        :param iv: Initialization Vector
         :param creator_domain: Domain of Creator
         :param revision_count: Number of times asset was ingested
         :param metadata_version: Version of Metafile structure
         :param timestamp: Python datetime object. It will be converted to UTC string.
-        :param asset_id: Asset UUID
+        :param asset_dict: Asset Dictionary
         :param enc_asset_hash: Hash of encrypted asset in hexdigest format. 
                                 See https://docs.python.org/3/library/hashlib.html
         :type creator_domain: string
         :type revision_count: int
         :type metadata_version: int
         :type timestamp: string
-        :type asset_id: string
+        :type asset_dict: dict
         :type enc_asset_hash: string
+        :type iv: string
         :return: metadata as a json string
         :return: metadata as a Python dictionary
         :rtype: string
         :rtype: dict
         """
         metadata_dict = dict()
-        metadata_dict["asset_id"] = asset_id
-        metadata_dict["timestamp"] = timestamp
+        metadata_dict["asset_id"] = asset_dict["uuid"]
+        metadata_dict["timestamp"] = asset_dict["creation_timestamp"]
         metadata_dict["version"] = metadata_version
         metadata_dict["revision"] = revision_count
         metadata_dict["domain"] = creator_domain
         metadata_dict["enc_asset_hash"] = enc_asset_hash
+        metadata_dict["iv"] = iv
+        metadata_dict["file_size"] = asset_dict["file_size"]
         metadata_json = json.dumps(metadata_dict, sort_keys=True, cls=CustomJSONEncoder)
         return metadata_json, metadata_dict
 
@@ -184,11 +193,12 @@ class ContainerApi(object):
                 else:
                     element.clear()
                     continue
-            return metadata_dict, enc_b64_file_size
+            message = "Metadata extracted from container {} successfully ".format(container_file_path)
+            return metadata_dict, enc_b64_file_size, message
         except Exception as e:
             message = "Failed to extract metadata from container {}".format(container_file_path)
             logger.error(message + str(e))
-            return False
+            return None, None, message
 
     @staticmethod
     def create_encrypted_file_from_container(container_file_path, enc_b64_file_size):
@@ -218,12 +228,15 @@ class ContainerApi(object):
                 for mo in m:
                     pass
                 mf.seek(mo.end())
-                remaining_size = enc_b64_file_size
+                # mf.seek(36, 1)
                 with open(enc_out_file_path, 'wb+') as enc_out:
+                    # file_size_and_iv = mf.read(FILE_LEN_SIZE + IV_LEN_SIZE)
+                    # enc_out.write(file_size_and_iv)
+                    remaining_size = enc_b64_file_size
                     while remaining_size:
                         b64_data = mf.read(min(chunk_size, remaining_size))
                         remaining_size -= len(b64_data)
-                        # Another file safe, is it needed?
+                        # Another fail safe, is it needed?
                         if not b64_data:
                             break
                         bin_data = base64.b64decode(b64_data)
@@ -231,7 +244,7 @@ class ContainerApi(object):
                 mf.close()
                 return enc_out_file_path
         except Exception as e:
-            message = "Failed to extract metadata from container {}".format(container_file_path)
+            message = "Failed to extract encrypted file from container {}".format(container_file_path)
             logger.error(message + str(e))
             return None
 
@@ -248,11 +261,16 @@ class ContainerApi(object):
         :type asset_url: string
         :type local_file_path: string
         :return: True or False
+        :return: message
+        :return: sha256
+        :rtype: boolean
+        :rtype: string
+        :rtype: bytes
         """
         match = re.search('^file://(.*)', asset_url)
         if match:
             file_path_in_json = match.group(1).split("localhost")
-            return EncryptionApi.encrypt_file_and_save(file_path_in_json[0], local_file_path, key, key_iv)
+            return EncryptionApi.encrypt_b64encode_file_and_save(file_path_in_json[0], local_file_path, key, key_iv)
         else:
             # TODO need to write proper unit test
             r = requests.get(asset_url, stream=True)
@@ -262,4 +280,4 @@ class ContainerApi(object):
             # if not r.success:
             #    logger.error("Could not access URL: %s", asset_url)
             #    return False
-            return EncryptionApi.encrypt_file_and_save(r.raw, local_file_path, key, key_iv)
+            return EncryptionApi.encrypt_b64encode_file_and_save(r.raw, local_file_path, key, key_iv)

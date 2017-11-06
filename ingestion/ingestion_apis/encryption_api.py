@@ -8,11 +8,14 @@ import contextlib
 import hashlib
 import os
 import logging
-from time import time
 
 from Crypto.Cipher import AES
 from magen_logger.logger_config import LogDefaults
 logger = logging.getLogger(LogDefaults.default_log_name)
+
+FILE_LEN_SIZE = 20
+IV_LEN_SIZE = 16
+B64_FILE_IV_SIZE = int(((FILE_LEN_SIZE + IV_LEN_SIZE) << 2) / 3)
 
 
 __author__ = "paulq@cisco.com"
@@ -37,8 +40,8 @@ class EncryptionApi(object):
         :param src_file_path: The path of the source file
         :param dst_file_path: The path of the destination file
         :param chunk_size: The read size
-        :type key: bytes
-        :type key_iv: bytes
+        :type key: string
+        :type key_iv: string
         :type src_file_path: string
         :type dst_file_path: string
         :type chunk_size: int
@@ -52,18 +55,18 @@ class EncryptionApi(object):
                 src_file.seek(0, 0)
                 with open(dst_file_path, 'wb+') as dst_file:
 
-                    encryptor = AES.new(key, AES.MODE_CBC, key_iv)
-                    pad_byte = ' '.encode("ascii")
-                    file_size_str = str(file_size).rjust(20, '0')
-                    dst_file.write(file_size_str.encode("ascii"))
-                    dst_file.write(key_iv)
+                    encryptor = AES.new(key, AES.MODE_CBC, key_iv.encode("utf-8"))
+                    pad_byte = ' '.encode("utf-8")
+                    # file_size_str = str(file_size).rjust(FILE_LEN_SIZE, '0')
+                    # dst_file.write(file_size_str.encode("utf-8"))
+                    # dst_file.write(key_iv.encode("utf-8"))
 
                     while True:
                         chunk = src_file.read(chunk_size)
                         if len(chunk) == 0:
                             break
-                        elif len(chunk) % 16 != 0:
-                            chunk += pad_byte * (16 - len(chunk) % 16)
+                        elif len(chunk) % IV_LEN_SIZE != 0:
+                            chunk += pad_byte * (IV_LEN_SIZE - len(chunk) % IV_LEN_SIZE)
                         dst_file.write(encryptor.encrypt(chunk))
 
                 return True, None
@@ -94,8 +97,8 @@ class EncryptionApi(object):
         :param file_obj: The path of the source file
         :param dst_file_path: The path of the destination file
         :param chunk_size: The read size
-        :type key: bytes
-        :type key_iv: bytes
+        :type key: string
+        :type key_iv: string
         :type file_obj: FileStorage
         :type dst_file_path: string
         :type chunk_size: int
@@ -108,21 +111,22 @@ class EncryptionApi(object):
             file_obj.seek(0, 0)
             with open(dst_file_path, 'wb+') as dst_file:
 
-                encryptor = AES.new(key, AES.MODE_CBC, key_iv)
-                pad_byte = ' '.encode("ascii")
-                file_size_str = str(file_size).rjust(20, '0')
-                dst_file.write(file_size_str.encode("ascii"))
-                dst_file.write(key_iv)
+                encryptor = AES.new(key.encode("utf-8"), AES.MODE_CBC, key_iv.encode("utf-8"))
+                pad_byte = ' '.encode("utf-8")
+                # file_size_str = str(file_size).rjust(FILE_LEN_SIZE, '0')
+                # dst_file.write(file_size_str.encode("utf-8"))
+                # dst_file.write(key_iv.encode("utf-8"))
 
                 while True:
                     chunk = file_obj.read(chunk_size)
                     if len(chunk) == 0:
                         break
-                    elif len(chunk) % 16 != 0:
-                        chunk += pad_byte * (16 - len(chunk) % 16)
+                    elif len(chunk) % IV_LEN_SIZE != 0:
+                        chunk += pad_byte * (IV_LEN_SIZE - len(chunk) % IV_LEN_SIZE)
                     dst_file.write(encryptor.encrypt(chunk))
 
-            return True, None
+            message = "Encrypted asset {} successfully".format(file_obj)
+            return True, file_size, message
 
         except Exception as e:
             message = "Failed to encrypt asset {}".format(file_obj)
@@ -130,7 +134,7 @@ class EncryptionApi(object):
             # Trick to not have to catch an exception within a exception
             with contextlib.suppress(FileNotFoundError):
                 os.remove(file_obj)
-            return False, message
+            return False, None, message
 
     @staticmethod
     def create_meta(asset_id, source="Cisco", padding="0"):
@@ -177,67 +181,7 @@ class EncryptionApi(object):
             return None, message
 
     @staticmethod
-    def encrypt_b64encode_file_and_save(src_file_path, dst_file_path, key, key_iv, chunk_size=9600):
-        """
-        Encrypts a file using AES (CBC mode) with the
-        given key and iv. The encryption is done as the source file is read,
-        therefore a single pass is needed.
-
-        :return: True or False
-        :rtype: boolean
-        :param key: Encryption key
-        :param key_iv: Initial Vector
-        :param src_file_path: The path of the source file
-        :param dst_file_path: The path of the destination file
-        :param chunk_size: The read size
-        :type key: bytes
-        :type key_iv: bytes
-        :type src_file_path: string
-        :type dst_file_path: string
-        :type chunk_size: int
-        """
-        logger = logging.getLogger(LogDefaults.default_log_name)
-        chunk_size -= chunk_size % 48  # align to multiples of 48
-
-        try:
-            sha256 = hashlib.sha256()
-            with open(src_file_path, 'rb') as src_file:
-                # move to end of file
-                file_size = src_file.seek(0, 2)
-                src_file.seek(0, 0)
-                with open(dst_file_path, 'wb+') as dst_file:
-
-                    encryptor = AES.new(key, AES.MODE_CBC, key_iv)
-                    pad_byte = ' '.encode("utf-8")
-                    file_size_str = str(file_size).rjust(20, '0')
-                    file_size = file_size_str.encode("ascii")
-                    dst_file.write(file_size)
-                    dst_file.write(key_iv)
-                    sha256.update(file_size)
-                    sha256.update(key_iv)
-
-                    while True:
-                        chunk = src_file.read(chunk_size)
-                        if len(chunk) == 0:
-                            break
-                        elif len(chunk) % 48 != 0:
-                            chunk += pad_byte * (48 - len(chunk) % 48)
-                        b64_data = base64.b64encode(encryptor.encrypt(chunk))
-                        dst_file.write(b64_data)
-                        sha256.update(b64_data)
-
-                return True, None, sha256
-
-        except Exception as e:
-            message = "Failed to encrypt asset {}".format(src_file_path)
-            logger.error(message + str(e))
-            # Trick to not have to catch an exception within a exception
-            with contextlib.suppress(FileNotFoundError):
-                os.remove(src_file_path)
-            return False, message, None
-
-    @staticmethod
-    def write_base64_file_from_file(src_file_name, b64_file_name, chunk_size=8190):
+    def write_base64_file_from_file(src_file_name, b64_file_name, chunk_size=3*3200):
         """
         This function reads a source file in chunks, encodes in base64 format and writes to a
         destination file. Since it does things in chunks, it handles large files.
@@ -268,7 +212,7 @@ class EncryptionApi(object):
             return False, message
 
     @staticmethod
-    def write_file_from_base64_file(b64_fname, dst_fname, chunk_size=10920):
+    def write_file_from_base64_file(b64_fname, dst_fname, chunk_size=4*3200):
         """
         This function reads a source file in chunks, decodes from base64 format and writes to a
         destination file. Since it does things in chunks, it handles large files.
@@ -299,7 +243,7 @@ class EncryptionApi(object):
             return False
 
     @staticmethod
-    def decrypt_file_v2(key, in_filename, out_filename=None, chunksize=24*1024):
+    def decrypt_file_v2(key, in_filename, metadata_dict, out_filename=None, chunksize=24*1024):
         """
         Decrypts a file using AES (CBC mode) with the
         given key. Parameters are similar to encrypt_file,
@@ -307,19 +251,20 @@ class EncryptionApi(object):
         will be in_filename without its last extension
         (i.e. if in_filename is 'aaa.zip.enc' then
         out_filename will be 'aaa.zip')
-        :param key:
+        :param key: Encryption key
         :param in_filename:
         :param out_filename:
-        :param chunksize:
+        :param chunksize: int
+        :type key: string
         """
         if not out_filename:
             out_filename = os.path.splitext(in_filename)[0]
 
         try:
             with open(in_filename, 'rb') as infile:
-                origsize = int(infile.read(20))
-                iv = infile.read(16)
-                decryptor = AES.new(key, AES.MODE_CBC, iv)
+                origsize = metadata_dict["file_size"]
+                iv = metadata_dict["iv"]
+                decryptor = AES.new(key.encode("utf-8"), AES.MODE_CBC, iv.encode("utf-8"))
 
                 with open(out_filename, 'wb') as outfile:
                     while True:
@@ -335,7 +280,7 @@ class EncryptionApi(object):
             return None
 
     @staticmethod
-    def b64decode_decrypt_file_and_save(key, in_filename, out_filename, chunk_size=9600):
+    def b64decode_decrypt_file_and_save(in_filename, out_filename, key, key_iv, file_size, chunk_size=4*3200):
         """
         Decodes and decrypts a file using AES (CBC mode) with the
         given key.
@@ -349,12 +294,12 @@ class EncryptionApi(object):
             chunk_size -= chunk_size % 48  # align to multiples of 4
             sha256 = hashlib.sha256()
             with open(in_filename, 'rb') as infile:
-                file_size = infile.read(20)
-                sha256.update(file_size)
-                origsize = int(file_size.decode("utf-8"))
-                iv = infile.read(16)
-                sha256.update(iv)
-                decryptor = AES.new(key, AES.MODE_CBC, iv)
+                # file_size = infile.read(FILE_LEN_SIZE)
+                # sha256.update(file_size)
+                # origsize = int(file_size.decode("utf-8"))
+                # iv = infile.read(IV_LEN_SIZE)
+                # sha256.update(iv)
+                decryptor = AES.new(key, AES.MODE_CBC, key_iv)
 
                 with open(out_filename, 'wb') as outfile:
                     while True:
@@ -364,10 +309,81 @@ class EncryptionApi(object):
                         sha256.update(chunk)
                         enc_data = base64.b64decode(chunk)
                         outfile.write(decryptor.decrypt(enc_data))
-                    outfile.truncate(origsize)
-            return True, None, sha256
+                    outfile.truncate(file_size)
+            message = "asset {} decrypted successfully".format(in_filename)
+            return sha256, message
         except Exception as e:
             message = "Failed to decrypt file {}".format(in_filename)
             logger.error(message + str(e))
-            return False, message, None
+            return None, message
 
+    @staticmethod
+    def encrypt_b64encode_file_and_save(src_file_path, dst_file_path, key, key_iv, chunk_size=3*3200):
+        """
+        Encrypts a file using AES (CBC mode) with the
+        given key and iv. The encryption is done as the source file is read,
+        therefore a single pass is needed.
+
+        The original file size and iv are not encrypted or base64 encoded
+
+
+        :param key: Encryption key
+        :param key_iv: Initial Vector
+        :param src_file_path: The path of the source file
+        :param dst_file_path: The path of the destination file
+        :param chunk_size: The read size
+        :type key: string
+        :type key_iv: string
+        :type src_file_path: string
+        :type dst_file_path: string
+        :type chunk_size: int
+        :return: True or False
+        :return: message
+        :return: sha256
+        :rtype: boolean
+        :rtype: string
+        :rtype: bytes
+        """
+        logger = logging.getLogger(LogDefaults.default_log_name)
+        chunk_size -= chunk_size % 48  # align to multiples of 48
+
+        try:
+            sha256 = hashlib.sha256()
+            key_iv_bytes = key_iv.encode("utf-8")
+            with open(src_file_path, 'rb') as src_file:
+                # move to end of file
+                file_size = src_file.seek(0, 2)
+                src_file.seek(0, 0)
+                with open(dst_file_path, 'wb+') as dst_file:
+
+                    encryptor = AES.new(key.encode("utf-8"), AES.MODE_CBC, key_iv_bytes)
+                    pad_byte = ' '.encode("utf-8")
+                    # file_size_str = str(file_size).rjust(FILE_LEN_SIZE, '0')
+                    # file_size_bytes = file_size_str.encode("utf-8")
+                    # file_size_and_iv = file_size_bytes + key_iv_bytes
+                    # file_size_and_iv_b64 = base64.b64encode(file_size_and_iv)
+                    # dst_file.write(file_size_and_iv_b64)
+                    # # dst_file.write(key_iv_bytes)
+                    # sha256.update(file_size_and_iv_b64)
+                    # # sha256.update(key_iv_bytes)
+
+                    while True:
+                        chunk = src_file.read(chunk_size)
+                        if len(chunk) == 0:
+                            break
+                        elif len(chunk) % 48 != 0:
+                            chunk += pad_byte * (48 - len(chunk) % 48)
+                        b64_data = base64.b64encode(encryptor.encrypt(chunk))
+                        dst_file.write(b64_data)
+                        sha256.update(b64_data)
+
+                message = "asset {} encrypted successfully".format(src_file_path)
+                return sha256, file_size, message
+
+        except Exception as e:
+            message = "Failed to encrypt asset {}".format(src_file_path)
+            logger.error(message + str(e))
+            # Trick to not have to catch an exception within a exception
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(src_file_path)
+            return None, None, message

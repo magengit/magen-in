@@ -194,6 +194,7 @@ def magen_create_asset():
         asset_dict["file_name"] = file_name
         dst_file_path = os.path.join(IngestionGlobals().data_dir, file_name)
         enc_file_path = dst_file_path + ".enc"
+        base64_file_path = enc_file_path + ".b64"
         asset_dict["file_path"] = dst_file_path
 
         # TODO: move to function
@@ -214,37 +215,40 @@ def magen_create_asset():
             if post_return_obj.success:
                 key_info = post_return_obj.json_body
                 key_b64 = key_info["response"]["key"]
-                logger.debug("key_id :%s",key_info["response"]["key_id"])
+                logger.debug("key_id :%s", key_info["response"]["key_id"])
                 key_iv_b64 = key_info["response"]["iv"]
                 # Decode key material we got from KS
-                iv_decoded = base64.b64decode(key_iv_b64)
+                # iv_decoded = base64.b64decode(key_iv_b64)
+                iv_decoded = key_iv_b64
                 logger.debug("decoded iv amd length: %s %s", iv_decoded, len(iv_decoded))
-                key_decoded = base64.b64decode(key_b64)
+                # key_decoded = base64.b64decode(key_b64)
+                key_decoded = key_b64
                 logger.debug("decoded key and length: %s %s", key_decoded, len(key_decoded))
 
-                success, message = ContainerApi.download_and_encrypt_file(download_url, enc_file_path, key_decoded, iv_decoded)
-                if not success:
+                b64_file_digest, file_size, message  = ContainerApi.download_and_encrypt_file(download_url, base64_file_path, key_decoded, iv_decoded)
+                if not b64_file_digest:
                     # TODO if something goes wrong we need to delete copy of file.
                     raise Exception(message)
 
-                base64_file_path = enc_file_path + ".b64"
-                success, message = EncryptionApi.write_base64_file_from_file(enc_file_path, base64_file_path)
-                if not success:
-                    raise Exception(message)
+                asset_dict["file_size"] = file_size
+                # base64_file_path = enc_file_path + ".b64"
+                # success, message = EncryptionApi.write_base64_file_from_file(enc_file_path, base64_file_path)
+                # if not success:
+                #     raise Exception(message)
 
-                b64_file_digest, message = EncryptionApi.create_sha256_from_file(enc_file_path)
-                if not b64_file_digest:
-                    raise Exception(message)
+                # b64_file_digest, message = EncryptionApi.create_sha256_from_file(enc_file_path)
+                # if not b64_file_digest:
+                #     raise Exception(message)
 
-                metadata_json, metadata_dict = ContainerApi.create_meta_v2(asset_dict["uuid"],
-                                                                           asset_dict["creation_timestamp"],
+                metadata_json, metadata_dict = ContainerApi.create_meta_v2(asset_dict,
                                                                            creator_domain="www.magen.io",
-                                                                           enc_asset_hash=b64_file_digest.hexdigest())
+                                                                           enc_asset_hash=b64_file_digest.hexdigest(),
+                                                                           iv=iv_decoded)
                 metadata_b64 = ContainerApi.b64encode_meta_v2(metadata_json)
                 metadata_b64_str = metadata_b64.decode("utf-8")
                 html_container_path = dst_file_path + ".html"
-                if not ContainerApi.create_html_file_container(metadata_dict, metadata_b64_str,
-                                                               base64_file_path, html_container_path):
+                if not ContainerApi.create_html_file_container_from_file(metadata_dict, metadata_b64_str,
+                                                                         base64_file_path, html_container_path):
                     raise Exception("Failed to create container: {}".format(dst_file_path))
 
                 counters.increment(RestResponse.CREATED, INGESTION)

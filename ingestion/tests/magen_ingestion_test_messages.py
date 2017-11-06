@@ -22,6 +22,20 @@ MAGEN_SINGLE_ASSET_FINANCE_POST = """
   ]
 }"""
 
+
+MAGEN_METADATA_TEST = """
+{
+    "asset_id": "c902535b-d663-4123-8c00-dc3f3349c5d0",
+    "domain": "ps.box.com",
+    "enc_asset_hash": "031edd7d41651593c5fe5c006fa5752b37fddff7bc4e843aa6af0c950f4b9406",
+    "file_size": 14,
+    "iv": null,
+    "revision": 3,
+    "timestamp": "2017-11-05 23:12:28.187745+00:00",
+    "version": 2
+}
+"""
+
 MAGEN_SINGLE_ASSET_FINANCE_POST_KEYERROR = """
 {
 
