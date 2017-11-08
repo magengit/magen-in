@@ -1,6 +1,6 @@
 PACKAGE_TAG = ingestion
 PACKAGE_NAME = magen_$(PACKAGE_TAG)_service
-WHEEL := magen_$(PACKAGE_TAG)_service-1.3a1-py3-none-any.whl
+WHEEL := magen_$(PACKAGE_TAG)_service-1.3a2-py3-none-any.whl
 DOCKER_SRC_TAG=magen_ingestion:v1.0
 DOCKER_IMAGE=magen-in
 DOCKER_DIR=docker_$(PACKAGE_TAG)

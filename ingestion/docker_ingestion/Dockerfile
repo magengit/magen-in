@@ -18,7 +18,7 @@ RUN rm -rf tests/__pycache__/
 
 # For dev:
 WORKDIR /tmp
-COPY magen_ingestion_service-1.3a1-py3-none-any.whl /tmp
-RUN pip3 install magen_ingestion_service-1.3a1-py3-none-any.whl
+COPY magen_ingestion_service-1.3a2-py3-none-any.whl /tmp
+RUN pip3 install magen_ingestion_service-1.3a2-py3-none-any.whl
 
 WORKDIR /opt/server/ingestion
