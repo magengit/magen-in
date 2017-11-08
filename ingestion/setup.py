@@ -11,7 +11,7 @@ if pip_version < 901:
 
 setup(
     name='magen_ingestion_service',
-    version='1.3a1',
+    version='1.3a2',
     install_requires=[
         'aniso8601>=1.2.1',
         'coverage>=4.4.1',
