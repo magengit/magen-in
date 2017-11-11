@@ -205,7 +205,7 @@ def magen_create_asset():
             # We need to remove keys that will break JSONnify
             asset_dict_json.pop('_id', None)
             # We also POP the local file path since it has local significance only
-            asset_dict_json.pop('file_path', None)
+            # asset_dict_json.pop('file_path', None)
             # Since we created an asset, now we will request its key
             server_urls_instance = ServerUrls().get_instance()
             key_post_dict = {"asset": {"asset_id": asset_dict["uuid"]}, "format": "json", "ks_type": "local"}
