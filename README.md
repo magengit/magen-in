@@ -9,7 +9,16 @@ Magen Ingestion Service is a microservice responsible for ingesting a digital da
 for managing digital assets. By assets we understand any sensitive resources that could be encrypted or wrapped
 in order to restrict access to them.
 
-Current version: ```1.0a2```
+Current version: ```1.3a2```
+
+## Git clone
+
+All of Magen services depend on an operations git submodule [**magen_helper**](https://github.com/magengit/magen-helper).
+When cloning this repo, make sure to provide ```--recursive``` flag or after the clone execute a command to update ```magen-helpers``` git submodule:
+
+```
+git submodule update --init --recursive
+```
 
 For This Service there are available ```make``` commands. Makefile is located under [**ingestion/**](ingestion)
 
@@ -67,11 +76,11 @@ default:
 
 ## Sphinx Documentation SetUp
 
-There is a configured Sphinx API docs for the service. 
-To compile docs execute: 
+There is a configured Sphinx API docs for the service.
+To compile docs execute:
 
 ```make html``` in [```docs```](ingestion/docs) directory
-    
+
 or run:
 
 ```make doc``` in the [```ingestion```](ingestion) directory
