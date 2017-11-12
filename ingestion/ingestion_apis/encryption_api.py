@@ -381,7 +381,7 @@ class EncryptionApi(object):
                 return sha256, file_size, message
 
         except Exception as e:
-            message = "Failed to encrypt asset {}, error: ".format(src_file_path, str(e))
+            message = "Failed to encrypt asset {}, error {}: ".format(src_file_path, str(e))
             logger.error(message)
             # Trick to not have to catch an exception within a exception
             with contextlib.suppress(FileNotFoundError):

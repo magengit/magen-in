@@ -15,6 +15,7 @@ from magen_rest_apis.rest_server_apis import RestServerApis
 from magen_rest_apis.server_urls import ServerUrls
 from magen_statistics_api.metric_flavors import RestResponse, RestRequest
 from magen_utils_apis.datetime_api import datetime_parse_iso8601_string_to_utc
+from magen_utils_apis.domain_resolver import inside_docker
 from werkzeug.exceptions import BadRequest
 from werkzeug.utils import secure_filename
 
@@ -67,7 +68,12 @@ configuration = Blueprint('configuration', __name__)
 @ingestion_bp_v2.route('/check/', methods=["GET"])
 @ingestion_bp.route('/check/', methods=["GET"])
 def heath_check():
-    return "Check success"
+    docker = False
+    if inside_docker:
+        docker = True
+    return RestServerApis.respond(
+        HTTPStatus.OK, "Health Check", {
+            "docker": docker})
 
 
 @ingestion_bp_v2.route('/logging_level/', methods=["PUT"])
