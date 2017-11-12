@@ -256,8 +256,8 @@ class ContainerApi(object):
         :param key_iv: Initial Vector
         :param asset_url: A HTTP or FILE URL
         :param local_file_path: The file path to the encrypted file.
-        :type key: bytes
-        :type key_iv: bytes
+        :type key: string
+        :type key_iv: string
         :type asset_url: string
         :type local_file_path: string
         :return: True or False

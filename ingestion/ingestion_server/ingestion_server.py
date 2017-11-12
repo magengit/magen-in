@@ -33,7 +33,7 @@ from ingestion.ingestion_server.asset_rest_api import ingestion_bp, configuratio
 from ingestion.ingestion_server.ingestion_app import MagenIngestionApp
 from ingestion.ingestion_mongo_apis.mongo_asset import MongoAsset
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
-from magen_utils_apis.domain_resolver import mongo_host_port, LOCAL_MONGO_LOCATOR
+from magen_utils_apis.domain_resolver import mongo_host_port, LOCAL_MONGO_LOCATOR, inside_docker
 from ingestion.ingestion_server.ingestion_rest_api_v2 import ingestion_bp_v2
 
 __author__ = "Reinaldo Penno repenno@cisco.com"
@@ -65,8 +65,11 @@ def main(args):
                                             "\n\nnote:\n"
                                             "root privileges are required "))
 
-    home_dir = str(Path.home())
-    ingestion_data_dir = os.path.join(home_dir, "magen_data", "ingestion")
+    if inside_docker:
+        ingestion_data_dir = os.path.join("/opt", "data")
+    else:
+        home_dir = str(Path.home())
+        ingestion_data_dir = os.path.join(home_dir, "magen_data", "ingestion")
 
     parser.add_argument('--data-dir', default=ingestion_data_dir,
                         help='Set directory for data files'
