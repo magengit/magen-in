@@ -893,3 +893,31 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+
+    def test_Encrypt_Asset(self):
+        """
+        Uploads a file to Ingestion Server and checks if it was ingested properly.
+        """
+        file_name = "test_up.txt"
+        full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        try:
+            magen_file = open(full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            key = ks_post_resp_json_obj["response"]["key"]
+            key_iv = ks_post_resp_json_obj["response"]["iv"]
+            success, message = EncryptionApi.encrypt_file_and_save(full_path, full_path + ".enc", key, key_iv)
+            self.assertTrue(success)
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)

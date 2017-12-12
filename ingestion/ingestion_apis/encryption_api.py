@@ -8,6 +8,7 @@ import contextlib
 import hashlib
 import os
 import logging
+from binascii import hexlify
 
 from Crypto.Cipher import AES
 from magen_logger.logger_config import LogDefaults
@@ -31,7 +32,7 @@ class EncryptionApi(object):
         """
         Encrypts a file using AES (CBC mode) with the
         given key and iv. The encryption is done as the source file is read,
-        therefore a single pass is needed.
+        therefore a single pass is needed. 16 bytes boundary applies to CBC mode.
 
         :return: True or False
         :rtype: boolean
@@ -55,18 +56,22 @@ class EncryptionApi(object):
                 src_file.seek(0, 0)
                 with open(dst_file_path, 'wb+') as dst_file:
 
-                    encryptor = AES.new(key, AES.MODE_CBC, key_iv.encode("utf-8"))
-                    pad_byte = ' '.encode("utf-8")
+                    encryptor = AES.new(key.encode("utf-8"), AES.MODE_CBC, key_iv.encode("utf-8"))
+                    # pad_byte = ' '.encode("utf-8")
                     # file_size_str = str(file_size).rjust(FILE_LEN_SIZE, '0')
                     # dst_file.write(file_size_str.encode("utf-8"))
                     # dst_file.write(key_iv.encode("utf-8"))
 
                     while True:
                         chunk = src_file.read(chunk_size)
+
                         if len(chunk) == 0:
                             break
-                        elif len(chunk) % IV_LEN_SIZE != 0:
-                            chunk += pad_byte * (IV_LEN_SIZE - len(chunk) % IV_LEN_SIZE)
+                        elif len(chunk) % 16 != 0:
+                            # PKCS #5
+                            length = 16 - (len(chunk) % 16)
+                            pad_byte_ch = chr(length).encode("utf-8")
+                            chunk += pad_byte_ch * length
                         dst_file.write(encryptor.encrypt(chunk))
 
                 return True, None
@@ -243,7 +248,7 @@ class EncryptionApi(object):
             return False
 
     @staticmethod
-    def decrypt_file_v2(key, in_filename, metadata_dict, out_filename=None, chunksize=24*1024):
+    def decrypt_file_v2(key, in_filename, metadata_dict, out_filename=None, chunk_size=24 * 1024):
         """
         Decrypts a file using AES (CBC mode) with the
         given key. Parameters are similar to encrypt_file,
@@ -252,10 +257,15 @@ class EncryptionApi(object):
         (i.e. if in_filename is 'aaa.zip.enc' then
         out_filename will be 'aaa.zip')
         :param key: Encryption key
-        :param in_filename:
-        :param out_filename:
-        :param chunksize: int
+        :param in_filename: Input filename
+        :param metadata_dict: Metadata Dictionary
+        :param out_filename: Output filename
+        :param chunk_size: Read Chunk size
         :type key: string
+        :type in_filename: string
+        :type metadata_dict: dict
+        :type out_filename: string
+        :type chunk_size: int
         """
         if not out_filename:
             out_filename = os.path.splitext(in_filename)[0]
@@ -268,7 +278,7 @@ class EncryptionApi(object):
 
                 with open(out_filename, 'wb') as outfile:
                     while True:
-                        chunk = infile.read(chunksize)
+                        chunk = infile.read(chunk_size)
                         if len(chunk) == 0:
                             break
                         outfile.write(decryptor.decrypt(chunk))
@@ -284,10 +294,17 @@ class EncryptionApi(object):
         """
         Decodes and decrypts a file using AES (CBC mode) with the
         given key.
+        :param file_size: File size
+        :param key_iv: Initial Vector
         :param key: Encryption key
         :param in_filename: Input filename
-        :param out_filename:
+        :param out_filename: Output filename
         :param chunk_size: Read chunk size
+        :type key: bytes
+        :type key_iv: bytes
+        :type in_filename: string
+        :type out_filename: string
+        :type chunk_size: int
         """
 
         try:
