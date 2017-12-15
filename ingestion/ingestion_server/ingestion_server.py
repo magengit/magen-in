@@ -65,7 +65,7 @@ def main(args):
                                             "\n\nnote:\n"
                                             "root privileges are required "))
 
-    if inside_docker:
+    if inside_docker():
         ingestion_data_dir = os.path.join("/opt", "data")
     else:
         home_dir = str(Path.home())

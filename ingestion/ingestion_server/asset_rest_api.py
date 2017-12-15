@@ -237,14 +237,6 @@ def magen_create_asset():
                     raise Exception(message)
 
                 asset_dict["file_size"] = file_size
-                # base64_file_path = enc_file_path + ".b64"
-                # success, message = EncryptionApi.write_base64_file_from_file(enc_file_path, base64_file_path)
-                # if not success:
-                #     raise Exception(message)
-
-                # b64_file_digest, message = EncryptionApi.create_sha256_from_file(enc_file_path)
-                # if not b64_file_digest:
-                #     raise Exception(message)
 
                 metadata_json, metadata_dict = ContainerApi.create_meta_v2(asset_dict,
                                                                            creator_domain="www.magen.io",

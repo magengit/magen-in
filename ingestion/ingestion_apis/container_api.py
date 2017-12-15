@@ -201,13 +201,14 @@ class ContainerApi(object):
             return None, None, message
 
     @staticmethod
-    def create_encrypted_file_from_container(container_file_path, enc_b64_file_size):
+    def create_encrypted_file_from_container(container_file_path, enc_b64_file_size, chunk_size=10920):
         """
         We extract the base64 asset from the container, decode it and save to a file. Decryption
         should be done in a separate step.
 
         We perform a search instead of HTML parse because containers can be larger than available memory.
 
+        :param chunk_size: B64 Decoding chunk size
         :param container_file_path: Full path to container
         :param enc_b64_file_size: Size of the asset inside container.
         :return: Encrypted file path
@@ -215,7 +216,6 @@ class ContainerApi(object):
         # We open the container
         try:
             # When decoding b64 the chunk size needs to be a multiple of 4.
-            chunk_size = 10920
             container_file_name = container_file_path.split("/")[-1]
             orig_file_name = container_file_name.split(".html")[0]
             enc_out_file_path = os.path.join(IngestionGlobals().data_dir, orig_file_name + ".out.enc")
@@ -228,7 +228,6 @@ class ContainerApi(object):
                 for mo in m:
                     pass
                 mf.seek(mo.end())
-                # mf.seek(36, 1)
                 with open(enc_out_file_path, 'wb+') as enc_out:
                     # file_size_and_iv = mf.read(FILE_LEN_SIZE + IV_LEN_SIZE)
                     # enc_out.write(file_size_and_iv)

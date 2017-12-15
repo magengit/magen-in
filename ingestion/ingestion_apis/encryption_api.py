@@ -8,7 +8,6 @@ import contextlib
 import hashlib
 import os
 import logging
-from binascii import hexlify
 
 from Crypto.Cipher import AES
 from magen_logger.logger_config import LogDefaults
@@ -28,11 +27,12 @@ __status__ = "alpha"
 class EncryptionApi(object):
 
     @staticmethod
-    def encrypt_file_and_save(src_file_path, dst_file_path, key, key_iv, chunk_size=24 * 1024):
+    def encrypt_file_and_save(src_file_path, dst_file_path, key, key_iv, chunk_size=24 * 1024, block_size=16):
         """
-        Encrypts a file using AES (CBC mode) with the
-        given key and iv. The encryption is done as the source file is read,
-        therefore a single pass is needed. 16 bytes boundary applies to CBC mode.
+        Encrypts a file using AES (CBC mode) with the given key and iv. Padding is done according PKCS #7 with
+        with the message being multiple of 16.
+        The encryption is done as the source file is read, therefore a single pass is needed. 16 bytes boundary
+        applies to CBC mode.
 
         :return: True or False
         :rtype: boolean
@@ -41,35 +41,33 @@ class EncryptionApi(object):
         :param src_file_path: The path of the source file
         :param dst_file_path: The path of the destination file
         :param chunk_size: The read size
+        :param block_size: Encryption block size.
         :type key: string
         :type key_iv: string
         :type src_file_path: string
         :type dst_file_path: string
         :type chunk_size: int
+        :type block_size: int
         """
         logger = logging.getLogger(LogDefaults.default_log_name)
 
         try:
             with open(src_file_path, 'rb') as src_file:
                 # move to end of file
-                file_size = src_file.seek(0, 2)
+                # file_size = src_file.seek(0, 2)
                 src_file.seek(0, 0)
                 with open(dst_file_path, 'wb+') as dst_file:
 
                     encryptor = AES.new(key.encode("utf-8"), AES.MODE_CBC, key_iv.encode("utf-8"))
-                    # pad_byte = ' '.encode("utf-8")
-                    # file_size_str = str(file_size).rjust(FILE_LEN_SIZE, '0')
-                    # dst_file.write(file_size_str.encode("utf-8"))
-                    # dst_file.write(key_iv.encode("utf-8"))
 
                     while True:
                         chunk = src_file.read(chunk_size)
 
                         if len(chunk) == 0:
                             break
-                        elif len(chunk) % 16 != 0:
-                            # PKCS #5
-                            length = 16 - (len(chunk) % 16)
+                        elif len(chunk) % block_size != 0:
+                            # PKCS #7
+                            length = block_size - (len(chunk) % block_size)
                             pad_byte_ch = chr(length).encode("utf-8")
                             chunk += pad_byte_ch * length
                         dst_file.write(encryptor.encrypt(chunk))
@@ -85,10 +83,11 @@ class EncryptionApi(object):
             return False, message
 
     @staticmethod
-    def encrypt_uploaded_file_and_save(file_obj, dst_file_path, key, key_iv, chunk_size=24 * 1024):
+    def encrypt_uploaded_file_and_save(file_obj, dst_file_path, key, key_iv, chunk_size=24 * 1024, block_size=16):
         """
         Encrypts a file using AES (CBC mode) with the
-        given key and iv. The encryption is done as the source file is read,
+        given key and iv. Padding is done according PKCS #7 with
+        with the message being multiple of 16. The encryption is done as the source file is read,
         therefore a single pass is needed.
 
         file-obj is normally of FileStorage type that is a Flask type
@@ -102,13 +101,16 @@ class EncryptionApi(object):
         :param file_obj: The path of the source file
         :param dst_file_path: The path of the destination file
         :param chunk_size: The read size
+        :param block_size: Encryption block size.
         :type key: string
         :type key_iv: string
         :type file_obj: FileStorage
         :type dst_file_path: string
         :type chunk_size: int
+        :type block_size: int
         """
         logger = logging.getLogger(LogDefaults.default_log_name)
+        chunk_size -= chunk_size % block_size
 
         try:
             # move to end of file
@@ -117,17 +119,16 @@ class EncryptionApi(object):
             with open(dst_file_path, 'wb+') as dst_file:
 
                 encryptor = AES.new(key.encode("utf-8"), AES.MODE_CBC, key_iv.encode("utf-8"))
-                pad_byte = ' '.encode("utf-8")
-                # file_size_str = str(file_size).rjust(FILE_LEN_SIZE, '0')
-                # dst_file.write(file_size_str.encode("utf-8"))
-                # dst_file.write(key_iv.encode("utf-8"))
 
                 while True:
                     chunk = file_obj.read(chunk_size)
                     if len(chunk) == 0:
                         break
-                    elif len(chunk) % IV_LEN_SIZE != 0:
-                        chunk += pad_byte * (IV_LEN_SIZE - len(chunk) % IV_LEN_SIZE)
+                    elif len(chunk) % block_size != 0:
+                        # PKCS #7
+                        length = block_size - (len(chunk) % block_size)
+                        pad_byte_ch = chr(length).encode("utf-8")
+                        chunk += pad_byte_ch * length
                     dst_file.write(encryptor.encrypt(chunk))
 
             message = "Encrypted asset {} successfully".format(file_obj)
@@ -222,10 +223,10 @@ class EncryptionApi(object):
         This function reads a source file in chunks, decodes from base64 format and writes to a
         destination file. Since it does things in chunks, it handles large files.
         run out of memory
-        :param src_fname: source file name
-        :param b64_fname: destination file name
+        :param b64_fname: source file name
+        :param dst_fname: destination file name
         :param chunk_size: Decoding chunk size
-        :type src_fname: string
+        :type dst_fname: string
         :param b64_fname: string
         :param chunk_size: int
         :return:
@@ -290,7 +291,7 @@ class EncryptionApi(object):
             return None
 
     @staticmethod
-    def b64decode_decrypt_file_and_save(in_filename, out_filename, key, key_iv, file_size, chunk_size=4*3200):
+    def b64decode_decrypt_file_and_save(in_filename, out_filename, key, key_iv, file_size, chunk_size=4*3200, block_size=16):
         """
         Decodes and decrypts a file using AES (CBC mode) with the
         given key.
@@ -300,22 +301,19 @@ class EncryptionApi(object):
         :param in_filename: Input filename
         :param out_filename: Output filename
         :param chunk_size: Read chunk size
+        :param block_size: The alignment for decryption and decoding. Needs to be the same for encryption and encoding.
         :type key: bytes
         :type key_iv: bytes
         :type in_filename: string
         :type out_filename: string
         :type chunk_size: int
+        :type block_size: int
         """
 
         try:
-            chunk_size -= chunk_size % 48  # align to multiples of 4
+            chunk_size -= chunk_size % block_size  # align to multiples of 4
             sha256 = hashlib.sha256()
             with open(in_filename, 'rb') as infile:
-                # file_size = infile.read(FILE_LEN_SIZE)
-                # sha256.update(file_size)
-                # origsize = int(file_size.decode("utf-8"))
-                # iv = infile.read(IV_LEN_SIZE)
-                # sha256.update(iv)
                 decryptor = AES.new(key, AES.MODE_CBC, key_iv)
 
                 with open(out_filename, 'wb') as outfile:
@@ -335,7 +333,7 @@ class EncryptionApi(object):
             return None, message
 
     @staticmethod
-    def encrypt_b64encode_file_and_save(src_file_path, dst_file_path, key, key_iv, chunk_size=3*3200):
+    def encrypt_b64encode_file_and_save(src_file_path, dst_file_path, key, key_iv, chunk_size=3*3200, block_size=16):
         """
         Encrypts a file using AES (CBC mode) with the
         given key and iv. The encryption is done as the source file is read,
@@ -349,11 +347,13 @@ class EncryptionApi(object):
         :param src_file_path: The path of the source file
         :param dst_file_path: The path of the destination file
         :param chunk_size: The read size
+        :param block_size: The alignment for encryption and encoding. Needs to be the same for decryption and decoding.
         :type key: string
         :type key_iv: string
         :type src_file_path: string
         :type dst_file_path: string
         :type chunk_size: int
+        :type block_size: int
         :return: True or False
         :return: message
         :return: sha256
@@ -362,7 +362,7 @@ class EncryptionApi(object):
         :rtype: bytes
         """
         logger = logging.getLogger(LogDefaults.default_log_name)
-        chunk_size -= chunk_size % 48  # align to multiples of 48
+        chunk_size -= chunk_size % block_size  # align to multiples of block_size, default 16
 
         try:
             sha256 = hashlib.sha256()
@@ -374,23 +374,17 @@ class EncryptionApi(object):
                 with open(dst_file_path, 'wb+') as dst_file:
 
                     encryptor = AES.new(key.encode("utf-8"), AES.MODE_CBC, key_iv_bytes)
-                    pad_byte = ' '.encode("utf-8")
-                    # file_size_str = str(file_size).rjust(FILE_LEN_SIZE, '0')
-                    # file_size_bytes = file_size_str.encode("utf-8")
-                    # file_size_and_iv = file_size_bytes + key_iv_bytes
-                    # file_size_and_iv_b64 = base64.b64encode(file_size_and_iv)
-                    # dst_file.write(file_size_and_iv_b64)
-                    # # dst_file.write(key_iv_bytes)
-                    # sha256.update(file_size_and_iv_b64)
-                    # # sha256.update(key_iv_bytes)
 
                     while True:
                         chunk = src_file.read(chunk_size)
                         if len(chunk) == 0:
                             break
-                        elif len(chunk) % 48 != 0:
-                            chunk += pad_byte * (48 - len(chunk) % 48)
-                        b64_data = base64.b64encode(encryptor.encrypt(chunk))
+                        elif len(chunk) % block_size != 0:
+                            length = block_size - (len(chunk) % block_size)
+                            pad_byte_ch = chr(length).encode("utf-8")
+                            chunk += pad_byte_ch * length
+                        enc_data = encryptor.encrypt(chunk)
+                        b64_data = base64.b64encode(enc_data)
                         dst_file.write(b64_data)
                         sha256.update(b64_data)
 

@@ -1,8 +1,10 @@
 #! /usr/bin/python3
 import base64
+import filecmp
 import glob
 import hashlib
 import json
+import shlex
 import unittest
 
 # noinspection PyUnresolvedReferences
@@ -11,6 +13,9 @@ from datetime import datetime
 from http import HTTPStatus
 from unittest.mock import Mock, patch
 
+import subprocess
+
+import binascii
 from Crypto import Random
 from Crypto.Cipher import AES
 from magen_rest_apis.server_urls import ServerUrls
@@ -534,6 +539,7 @@ class TestRestApi(unittest.TestCase):
         Uploads file and checks if it was ingested correctly. It mocks KeyServer response so
         it will work in unit test environment
         """
+        print("+++++++++ UploadFile_v2_Mock Test +++++++++")
         server_urls_instance = ServerUrls().get_instance()
         file_name = "test_up.txt"
         src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
@@ -559,7 +565,8 @@ class TestRestApi(unittest.TestCase):
                 with open(container_out_file_path, "wb+") as container_f:
                     container_f.write(post_resp_json_obj["response"]["container"].encode("utf-8"))
 
-                metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(container_out_file_path)
+                metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(
+                    container_out_file_path)
 
                 enc_out_file_path = ContainerApi.create_encrypted_file_from_container(container_out_file_path,
                                                                                       enc_b64_file_size)
@@ -586,6 +593,8 @@ class TestRestApi(unittest.TestCase):
         Creates an asset with a file URL that will be used to access the actual file. This test
         needs KS to be running.
         """
+        print("+++++++++ Create_Asset_with_File_URL Test +++++++++")
+
         server_urls_instance = ServerUrls().get_instance()
         file_name = "test_up.txt"
         src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
@@ -638,39 +647,57 @@ class TestRestApi(unittest.TestCase):
         Creates an asset with a file URL as source file. It mocks KeyServer response so
         it will work in unit test environment
         """
+        print("+++++++++ Create_Asset_with_File_URL_Mock Test +++++++++")
+
         server_urls_instance = ServerUrls().get_instance()
         file_name = "test_up.txt"
-        src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
 
         try:
 
             ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
-            # key = base64.b64decode(ks_post_resp_json_obj["response"]["key"])
             key = ks_post_resp_json_obj["response"]["key"]
+            key_iv = ks_post_resp_json_obj["response"]["iv"]
             rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
                                          json_body=ks_post_resp_json_obj,
                                          response_object=None)
             mock = Mock(return_value=rest_return_obj)
 
-            magen_file = open(src_file_full_path, 'w+')
+            magen_file = open(file_full_path, 'w+')
             magen_file.write("this is a test")
             magen_file.close()
             post_json = json.loads(MAGEN_INGESTION_POST_WITH_EMPTY_DOWNLOAD_URL)
-            post_json["asset"][0]["download_url"] = "file://" + src_file_full_path
+            post_json["asset"][0]["download_url"] = "file://" + file_full_path
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
                 post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_asset_url,
                                                     data=json.dumps(post_json),
                                                     headers={'content-type': 'application/json'})
 
                 self.assertEqual(post_resp_obj.status_code, HTTPStatus.CREATED)
-                container_file_path = src_file_full_path + ".html"
-                metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(container_file_path)
+                container_file_path = file_full_path + ".html"
+                metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(
+                    container_file_path)
 
                 self.assertIsNotNone(metadata_dict)
                 self.assertIsNotNone(enc_b64_file_size)
 
                 enc_out_file_path = ContainerApi.create_encrypted_file_from_container(container_file_path,
                                                                                       enc_b64_file_size)
+
+                dirname, enc_file = os.path.split(enc_out_file_path)
+
+                openssl_cli = "openssl enc -d -aes-256-cbc -iv " + binascii.hexlify(key_iv.encode("utf-8")).decode(
+                    "utf-8") + " -K " + binascii.hexlify(key.encode("utf-8")).decode(
+                    "utf-8") + " -in " + enc_file + " -out test_up.txt.ssl"
+
+                args = shlex.split(openssl_cli)
+                p = subprocess.Popen(args, cwd=os.path.dirname(file_full_path))
+                p.wait()
+
+                self.assertFalse(p.returncode)
+                files_equal = filecmp.cmp(file_full_path, os.path.join(base_path, "test_up.txt.ssl"))
+                self.assertTrue(files_equal)
 
                 out_file_path = EncryptionApi.decrypt_file_v2(key, enc_out_file_path, metadata_dict)
                 self.assertIsNotNone(out_file_path)
@@ -692,19 +719,24 @@ class TestRestApi(unittest.TestCase):
 
     def test_UploadFile_with_Mock_KS(self):
         """
-        Uploads a file to Ingestion Server and checks if it was ingested properly.
+        Uploads a file to Ingestion Server and checks if it was ingested properly. it mocks the KS
+        so it works stand-alone. It will Upload a file, get the container back, extract metadata, extract the
+        encrypted file, decrypt with openssl and internal API. It will compare all results.
         """
+        print("+++++++++ UploadFile_with_Mock_KS Test +++++++++")
+
         server_urls_instance = ServerUrls().get_instance()
         file_name = "test_up.txt"
-        full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
         try:
-            magen_file = open(full_path, 'w+')
+            magen_file = open(file_full_path, 'w+')
             magen_file.write("this is a test")
             magen_file.close()
-            files = {'file': (full_path, 'test_up.txt')}
+            files = {'file': (file_full_path, 'test_up.txt')}
             ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
-            # key = base64.b64decode(ks_post_resp_json_obj["response"]["key"])
             key = ks_post_resp_json_obj["response"]["key"]
+            key_iv = ks_post_resp_json_obj["response"]["iv"]
             rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
                                          json_body=ks_post_resp_json_obj,
                                          response_object=None)
@@ -714,13 +746,28 @@ class TestRestApi(unittest.TestCase):
                                                     headers={'content-type': 'multipart/form-data'})
                 self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
                 post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
-                container_file_path = full_path + ".html"
+                container_file_path = file_full_path + ".html"
                 with open(container_file_path, "wb+") as container_f:
                     container_f.write(post_resp_json_obj["response"]["container"].encode("utf-8"))
-                metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(container_file_path)
+                metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(
+                    container_file_path)
 
                 enc_out_file_path = ContainerApi.create_encrypted_file_from_container(container_file_path,
                                                                                       enc_b64_file_size)
+
+                dirname, enc_file = os.path.split(enc_out_file_path)
+
+                openssl_cli = "openssl enc -d -aes-256-cbc -iv " + binascii.hexlify(key_iv.encode("utf-8")).decode(
+                    "utf-8") + " -K " + binascii.hexlify(key.encode("utf-8")).decode(
+                    "utf-8") + " -in " + enc_file + " -out test_up.txt.ssl"
+
+                args = shlex.split(openssl_cli)
+                p = subprocess.Popen(args, cwd=os.path.dirname(file_full_path))
+                p.wait()
+
+                self.assertFalse(p.returncode)
+                files_equal = filecmp.cmp(file_full_path, os.path.join(base_path, "test_up.txt.ssl"))
+                self.assertTrue(files_equal)
 
                 out_file_path = EncryptionApi.decrypt_file_v2(key, enc_out_file_path, metadata_dict)
                 with open(out_file_path, "rb") as f:
@@ -742,35 +789,56 @@ class TestRestApi(unittest.TestCase):
     def test_UploadFile_CustomKS(self):
         """
         Full Ingestion and KS System Test. It will only work if KS is up therefore the
-        decorator
+        decorator. It will Upload a file, get the container back, extract metadata, extract the
+        encrypted file, decrypt with openssl and internal API. It will compare all results.
         """
+        print("+++++++++ UploadFile_CustomKS Test +++++++++")
+
         server_urls_instance = ServerUrls().get_instance()
         file_name = "test_up.txt"
-        full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+
         try:
-            magen_file = open(full_path, 'w+')
+            magen_file = open(file_full_path, 'w+')
             magen_file.write("this is a test")
             magen_file.close()
-            files = {'file': (full_path, 'test_up.txt')}
+            files = {'file': (file_full_path, 'test_up.txt')}
             post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_upload_url, data=files,
                                                 headers={'content-type': 'multipart/form-data'})
             self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
             post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
-            container_out_file_path = full_path + ".out.html"
+            container_out_file_path = file_full_path + ".out.html"
             with open(container_out_file_path, "wb+") as container_f:
                 container_f.write(post_resp_json_obj["response"]["container"].encode("utf-8"))
 
-            metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(container_out_file_path)
+            metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(
+                container_out_file_path)
 
             key_uuid_url = server_urls_instance.key_server_single_asset_url.format(metadata_dict["asset_id"])
             get_return_obj = RestClientApis.http_get_and_check_success(key_uuid_url)
             self.assertEqual(get_return_obj.success, True)
-            key_b64 = get_return_obj.json_body["response"]["key"]["key"]
-            # key = base64.b64decode(key_b64)
-            key = key_b64
+            key = get_return_obj.json_body["response"]["key"]["key"]
+            key_iv = get_return_obj.json_body["response"]["key"]["iv"]
 
             enc_out_file_path = ContainerApi.create_encrypted_file_from_container(container_out_file_path,
                                                                                   enc_b64_file_size)
+
+            dirname, enc_file = os.path.split(enc_out_file_path)
+
+            # Decrypt the fiel with OPenSSL to make sure it is compatible
+
+            openssl_cli = "openssl enc -d -aes-256-cbc -iv " + binascii.hexlify(key_iv.encode("utf-8")).decode(
+                "utf-8") + " -K " + binascii.hexlify(key.encode("utf-8")).decode(
+                "utf-8") + " -in " + enc_file + " -out test_up.txt.ssl"
+
+            args = shlex.split(openssl_cli)
+            p = subprocess.Popen(args, cwd=os.path.dirname(file_full_path))
+            p.wait()
+
+            self.assertFalse(p.returncode)
+            files_equal = filecmp.cmp(file_full_path, os.path.join(base_path, "test_up.txt.ssl"))
+            self.assertTrue(files_equal)
 
             out_file_path = EncryptionApi.decrypt_file_v2(key, enc_out_file_path, metadata_dict)
             with open(out_file_path, "rb") as f:
@@ -851,14 +919,16 @@ class TestRestApi(unittest.TestCase):
         Creates an large asset, encrypts, encodes and calulates digest. Perform reverse operation and checks
         for integrity and equality
         """
+        print("+++++++++ Create_Asset_with_Single_function Test +++++++++")
+
         file_name = "test_up.txt"
         src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
         # home_dir = str(Path.home())
         # src_file_full_path = os.path.join(home_dir, "magen_data", "ingestion", file_name)
         # t0 = time()
         try:
-            LOOP_COUNT = 30
-            chunk = 'a' * 10
+            LOOP_COUNT = 29
+            chunk = 'a' * 999
             with open(src_file_full_path, "wb") as magen_data:
                 for i in range(LOOP_COUNT):
                     magen_data.write(chunk.encode("ascii"))
@@ -869,17 +939,15 @@ class TestRestApi(unittest.TestCase):
 
             enc_base64_file_path = src_file_full_path + ".enc.b64"
             sha256in, file_size, message = EncryptionApi.encrypt_b64encode_file_and_save(src_file_full_path,
-                                                                                       enc_base64_file_path, key,
-                                                                                       key_iv)
+                                                                                         enc_base64_file_path, key,
+                                                                                         key_iv)
             self.assertIsNotNone(sha256in)
             out_file_full_path = src_file_full_path + ".out"
             sha256out, message = EncryptionApi.b64decode_decrypt_file_and_save(enc_base64_file_path,
-                                                                                        out_file_full_path, key,
-                                                                                        key_iv, file_size)
+                                                                               out_file_full_path, key,
+                                                                               key_iv, file_size)
             self.assertIsNotNone(sha256out)
             self.assertEqual(sha256in.hexdigest(), sha256out.hexdigest())
-            # d = int(time() - t0)
-            # print("Large File Test duration: {} s.".format(d))
 
         except (OSError, IOError) as e:
             print("Problem with file: {}".format(e))
@@ -894,21 +962,38 @@ class TestRestApi(unittest.TestCase):
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
 
-    def test_Encrypt_Asset(self):
+    def test_Encrypt_Asset_Decrypt_With_OpenSSL(self):
         """
-        Uploads a file to Ingestion Server and checks if it was ingested properly.
+        Creates a local file, encrypts with API then tries to decrypt with OpenSSL. Original file and decrypted
+        file are compared for equality.
         """
+        print("+++++++++ Encrypt_Asset_Decrypt_With_OpenSSL Test +++++++++")
+
         file_name = "test_up.txt"
-        full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
         try:
-            magen_file = open(full_path, 'w+')
+            magen_file = open(file_full_path, 'w+')
             magen_file.write("this is a test")
             magen_file.close()
             ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
             key = ks_post_resp_json_obj["response"]["key"]
             key_iv = ks_post_resp_json_obj["response"]["iv"]
-            success, message = EncryptionApi.encrypt_file_and_save(full_path, full_path + ".enc", key, key_iv)
+            success, message = EncryptionApi.encrypt_file_and_save(file_full_path, file_full_path + ".enc", key, key_iv)
             self.assertTrue(success)
+            # The Key and iv in this command comes from KEY_SERVER_POST_KEY_CREATION_RESP and are generated using
+            # hexlify()
+            args = shlex.split("openssl enc -d -aes-256-cbc -iv 476759414336687a3438564c47303952 -K "
+                               "59593545764a587766666965796169396579656e325764793769436f696d6b38 -in test_up.txt.enc "
+                               "-out test_up.txt.ssl")
+            p = subprocess.Popen(args, cwd=os.path.dirname(file_full_path))
+            p.wait()
+            """
+            openssl enc -d -aes-256-cbc -iv 476759414336687a3438564c47303952 -K 59593545764a587766666965796169396579656e325764793769436f696d6b38 -in test_up.txt.enc -out test_up.txt.ssl
+            """
+            self.assertFalse(p.returncode)
+            files_equal = filecmp.cmp(file_full_path, os.path.join(base_path, "test_up.txt.ssl"))
+            self.assertTrue(files_equal)
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
             self.assertTrue(False)
