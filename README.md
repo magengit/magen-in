@@ -48,7 +48,7 @@ default:
 ```
 
 ## Requirements: MacOS X
-0. ```python3 -V```: Python **3.5.2** (>=**3.4**)
+0. ```python3 -V```: Python **3.6.3** (>=**3.6.3**)
 0. ```pip3 -V```: pip **9.0.1**
 0. ```make -v```: GNU Make **3.81**
 1. ```docker -v```: Docker version **17.03.0-ce**, build 60ccb22
@@ -56,7 +56,7 @@ default:
 3. Make sure you have correct rights to clone Cisco-Magen github organization
 
 ## Requirements: AWS EC2 Ubuntu
-0. ```python3 -V```: Python **3.5.2**
+0. ```python3 -V```: Python **3.6.3**
 1. ```pip3 -V```: pip **9.0.1**
 2. ```make -v```: GNU Make **4.1**
 3. ```docker -v```: Docker version **17.03.0-ce**, build 60ccb22
