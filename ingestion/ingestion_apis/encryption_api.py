@@ -249,7 +249,7 @@ class EncryptionApi(object):
             return False
 
     @staticmethod
-    def decrypt_file_v2(key, in_filename, metadata_dict, out_filename=None, chunk_size=24 * 1024):
+    def decrypt_file_v2(key, in_filename, metadata_dict, out_filename=None, chunk_size=24 * 1024, block_size=16):
         """
         Decrypts a file using AES (CBC mode) with the
         given key. Parameters are similar to encrypt_file,
@@ -282,8 +282,13 @@ class EncryptionApi(object):
                         chunk = infile.read(chunk_size)
                         if len(chunk) == 0:
                             break
-                        outfile.write(decryptor.decrypt(chunk))
-                    outfile.truncate(origsize)
+                        dec_data = decryptor.decrypt(chunk)
+                        # Remove padding explicitly
+                        pos = infile.tell()
+                        if pos > origsize:
+                            dec_data = dec_data[0:-(pos - origsize)]
+                        outfile.write(dec_data)
+                    # outfile.truncate(origsize)
             return out_filename
         except Exception as e:
             message = "Failed to decrypt file {}".format(in_filename)
