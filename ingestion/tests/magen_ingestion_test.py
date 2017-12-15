@@ -572,6 +572,7 @@ class TestRestApi(unittest.TestCase):
                                                                                       enc_b64_file_size)
 
                 out_file_path = EncryptionApi.decrypt_file_v2(key, enc_out_file_path, metadata_dict)
+                self.assertIsNotNone(out_file_path)
                 with open(out_file_path, "rb") as f:
                     self.assertEqual(f.read(), "this is a test".encode("utf-8"))
         except (OSError, IOError) as e:
@@ -618,14 +619,13 @@ class TestRestApi(unittest.TestCase):
             key_uuid_url = server_urls_instance.key_server_single_asset_url.format(metadata_dict["asset_id"])
             get_return_obj = RestClientApis.http_get_and_check_success(key_uuid_url)
             self.assertEqual(get_return_obj.success, True)
-            key_b64 = get_return_obj.json_body["response"]["key"]["key"]
-            # key = base64.b64decode(key_b64)
-            key = key_b64
+            key = get_return_obj.json_body["response"]["key"]["key"]
 
             enc_out_file_path = ContainerApi.create_encrypted_file_from_container(container_file_path,
                                                                                   enc_b64_file_size)
 
             out_file_path = EncryptionApi.decrypt_file_v2(key, enc_out_file_path, metadata_dict)
+            self.assertIsNotNone(out_file_path)
             with open(out_file_path, "rb") as f:
                 self.assertEqual(f.read(), "this is a test".encode("utf-8"))
 
@@ -770,6 +770,7 @@ class TestRestApi(unittest.TestCase):
                 self.assertTrue(files_equal)
 
                 out_file_path = EncryptionApi.decrypt_file_v2(key, enc_out_file_path, metadata_dict)
+                self.assertIsNotNone(out_file_path)
                 with open(out_file_path, "rb") as f:
                     self.assertEqual(f.read(), "this is a test".encode("utf-8"))
         except (OSError, IOError) as e:
