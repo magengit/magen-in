@@ -114,7 +114,8 @@ class EncryptionApi(object):
 
         try:
             # move to end of file
-            file_size = file_obj.seek(0, 2)
+            file_obj.seek(0, 2)
+            file_size = file_obj.tell()
             file_obj.seek(0, 0)
             with open(dst_file_path, 'wb+') as dst_file:
 
