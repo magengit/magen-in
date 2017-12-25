@@ -78,8 +78,8 @@ class EncryptionApi(object):
             message = "Failed to encrypt asset {}".format(src_file_path)
             logger.error(message + str(e))
             # Trick to not have to catch an exception within a exception
-            with contextlib.suppress(FileNotFoundError):
-                os.remove(src_file_path)
+            with contextlib.suppress(FileNotFoundError, TypeError):
+                os.remove(dst_file_path)
             return False, message
 
     @staticmethod
@@ -139,8 +139,8 @@ class EncryptionApi(object):
             message = "Failed to encrypt asset {}".format(file_obj)
             logger.error(message + str(e))
             # Trick to not have to catch an exception within a exception
-            with contextlib.suppress(FileNotFoundError):
-                os.remove(file_obj)
+            with contextlib.suppress(FileNotFoundError, TypeError):
+                os.remove(dst_file_path)
             return False, None, message
 
     @staticmethod
@@ -212,7 +212,7 @@ class EncryptionApi(object):
                     fout.write(b64_data)
             return True, None
         except Exception as e:
-            with contextlib.suppress(FileNotFoundError):
+            with contextlib.suppress(FileNotFoundError, TypeError):
                 os.remove(b64_file_name)
             message = "Failed to base64 encode file: {}".format(src_file_name)
             logger.error(message + str(e))
@@ -243,7 +243,7 @@ class EncryptionApi(object):
                     fout.write(bin_data)
             return True
         except Exception as e:
-            with contextlib.suppress(FileNotFoundError):
+            with contextlib.suppress(FileNotFoundError, TypeError):
                 os.remove(dst_fname)
             message = "Failed to encrypt asset {}".format(b64_fname)
             logger.error(message + str(e))
@@ -269,10 +269,10 @@ class EncryptionApi(object):
         :type out_filename: string
         :type chunk_size: int
         """
-        if not out_filename:
-            out_filename = os.path.splitext(in_filename)[0]
 
         try:
+            if not out_filename:
+                out_filename = os.path.splitext(in_filename)[0]
             with open(in_filename, 'rb') as infile:
                 origsize = metadata_dict["file_size"]
                 iv = metadata_dict["iv"]
@@ -292,6 +292,8 @@ class EncryptionApi(object):
                     # outfile.truncate(origsize)
             return out_filename
         except Exception as e:
+            with contextlib.suppress(FileNotFoundError, TypeError):
+                os.remove(out_filename)
             message = "Failed to decrypt file {}".format(in_filename)
             logger.error(message + str(e))
             return None
@@ -334,6 +336,8 @@ class EncryptionApi(object):
             message = "asset {} decrypted successfully".format(in_filename)
             return sha256, message
         except Exception as e:
+            with contextlib.suppress(FileNotFoundError, TypeError):
+                os.remove(out_filename)
             message = "Failed to decrypt file {}".format(in_filename)
             logger.error(message + str(e))
             return None, message
@@ -401,6 +405,6 @@ class EncryptionApi(object):
             message = "Failed to encrypt asset {}, error {}: ".format(src_file_path, str(e))
             logger.error(message)
             # Trick to not have to catch an exception within a exception
-            with contextlib.suppress(FileNotFoundError):
-                os.remove(src_file_path)
+            with contextlib.suppress(FileNotFoundError, TypeError):
+                os.remove(dst_file_path)
             return None, None, message

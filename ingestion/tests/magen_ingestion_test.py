@@ -16,6 +16,8 @@ from unittest.mock import Mock, patch
 import subprocess
 
 import binascii
+
+import gridfs
 from Crypto import Random
 from Crypto.Cipher import AES
 from magen_rest_apis.server_urls import ServerUrls
@@ -973,6 +975,7 @@ class TestRestApi(unittest.TestCase):
         file_name = "test_up.txt"
         base_path = type(self).ingestion_globals.data_dir
         file_full_path = os.path.join(base_path, file_name)
+        enc_file = file_full_path + ".enc"
         try:
             magen_file = open(file_full_path, 'w+')
             magen_file.write("this is a test")
@@ -980,18 +983,18 @@ class TestRestApi(unittest.TestCase):
             ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
             key = ks_post_resp_json_obj["response"]["key"]
             key_iv = ks_post_resp_json_obj["response"]["iv"]
-            success, message = EncryptionApi.encrypt_file_and_save(file_full_path, file_full_path + ".enc", key, key_iv)
+            success, message = EncryptionApi.encrypt_file_and_save(file_full_path, enc_file, key, key_iv)
             self.assertTrue(success)
             # The Key and iv in this command comes from KEY_SERVER_POST_KEY_CREATION_RESP and are generated using
             # hexlify()
-            args = shlex.split("openssl enc -d -aes-256-cbc -iv 476759414336687a3438564c47303952 -K "
-                               "59593545764a587766666965796169396579656e325764793769436f696d6b38 -in test_up.txt.enc "
-                               "-out test_up.txt.ssl")
+
+            openssl_cli = "openssl enc -d -aes-256-cbc -iv " + binascii.hexlify(key_iv.encode("utf-8")).decode(
+                "utf-8") + " -K " + binascii.hexlify(key.encode("utf-8")).decode(
+                "utf-8") + " -in " + enc_file + " -out test_up.txt.ssl"
+
+            args = shlex.split(openssl_cli)
             p = subprocess.Popen(args, cwd=os.path.dirname(file_full_path))
             p.wait()
-            """
-            openssl enc -d -aes-256-cbc -iv 476759414336687a3438564c47303952 -K 59593545764a587766666965796169396579656e325764793769436f696d6b38 -in test_up.txt.enc -out test_up.txt.ssl
-            """
             self.assertFalse(p.returncode)
             files_equal = filecmp.cmp(file_full_path, os.path.join(base_path, "test_up.txt.ssl"))
             self.assertTrue(files_equal)
@@ -1007,3 +1010,114 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+
+    def test_GridFS_UploadStream(self):
+        """
+        Creates a local file, encrypts with API then tries to decrypt with OpenSSL. Original file and decrypted
+        file are compared for equality.
+        """
+        print("+++++++++ Encrypt_Asset_Decrypt_With_OpenSSL Test +++++++++")
+
+        file_name = "test_up.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        src_file_full_path = os.path.join(base_path, file_name)
+        grid_file_full_path = src_file_full_path + ".grid"
+        fs = gridfs.GridFSBucket(type(self).db.core_database.get_magen_mdb(), bucket_name="test")
+        iid = 0
+        try:
+            # Create file
+            magen_file = open(src_file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # Upload file
+            magen_file_upload = open(src_file_full_path, 'rb')
+            iid = fs.upload_from_stream("unit_test_grid", magen_file_upload,
+                                        metadata={"owner" : "Alice", "group": "users"})
+            self.assertIsNot(iid, 0, "Failed to upload file to Grid")
+            magen_file_upload.close()
+            # Download file
+            magen_file_out = open(grid_file_full_path, 'wb')
+            fs.download_to_stream_by_name("unit_test_grid", magen_file_out)
+            magen_file_out.close()
+            files_equal = filecmp.cmp(src_file_full_path, grid_file_full_path)
+            self.assertTrue(files_equal)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            if iid:
+                fs.delete(iid)
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+
+    def test_Encrypt_file_and_save_Exception(self):
+        """
+        POST to create single asset, fails with Exception
+        """
+        print("+++++++++test_Encrypt_file_and_save_Exception Test+++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        # AssetCreationApi.process_asset
+        success, message = EncryptionApi.encrypt_file_and_save(None, None, "", "")
+        self.assertFalse(success)
+
+    def test_Encrypt_uploaded_file_and_save_Exception(self):
+        """
+        POST to create single asset, fails with Exception
+        """
+        print("+++++++++test_Encrypt_uploaded_file_and_save_Exception Test+++++++++")
+        success, file_size, message = EncryptionApi.encrypt_uploaded_file_and_save(None, None, "", "")
+        self.assertFalse(success)
+
+    def test_create_sha256_from_file_Exception(self):
+        print("+++++++++test_create_sha256_from_file_Exception Test+++++++++")
+        sha256, message = EncryptionApi.create_sha256_from_file(None)
+        self.assertIs(sha256, None)
+
+    def test_write_base64_file_from_file_Exception(self):
+        print("+++++++++test_write_base64_file_from_file_Exception Test+++++++++")
+        success, message = EncryptionApi.write_base64_file_from_file(None, None)
+        self.assertFalse(success)
+
+    def test_write_file_from_base64_file_Exception(self):
+        print("+++++++++test_write_file_from_base64_file_Exception Test+++++++++")
+        success = EncryptionApi.write_file_from_base64_file(None, None)
+        self.assertFalse(success)
+
+    def test_decrypt_file_v2_Exception(self):
+        print("+++++++++test_decrypt_file_v2_Exception Test+++++++++")
+        success = EncryptionApi.decrypt_file_v2(None, None, None)
+        self.assertFalse(success)
+
+    def test_encrypt_b64encode_file_and_save_Exception(self):
+        print("+++++++++test_encrypt_b64encode_file_and_save_Exception Test+++++++++")
+        sha256, file_size, message = EncryptionApi.encrypt_b64encode_file_and_save(None, None, None, None)
+        self.assertIs(sha256, None)
+
+    def test_create_html_file_container_from_file_Exception(self):
+        print("+++++++++test_create_html_file_container_from_file_Exception Test+++++++++")
+        success = ContainerApi.create_html_file_container_from_file(None, None, None, None)
+        self.assertFalse(success)
+
+    def test_extract_meta_from_container_Exception(self):
+        print("+++++++++test_extract_meta_from_container_Exception Test+++++++++")
+        metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(None)
+        self.assertIs(metadata_dict, None)
+
+    def test_create_encrypted_file_from_container_Exception(self):
+        print("+++++++++test_create_encrypted_file_from_container_Exception Test+++++++++")
+        enc_out_file_path = ContainerApi.create_encrypted_file_from_container(None, None)
+        self.assertIs(enc_out_file_path, None)
+
+    def test_create_meta(self):
+        print("+++++++++test_create_meta Test+++++++++")
+        orig = bytearray(
+            b'c9243e28-238d-41b6-9c5e-37f0b1be4dae,Cisco0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
+        ret = EncryptionApi.create_meta("c9243e28-238d-41b6-9c5e-37f0b1be4dae")
+        self.assertEqual(orig, ret)

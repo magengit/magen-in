@@ -16,10 +16,11 @@ class MongoAsset(Dao):
         mongo_core = MainDb.get_core_db_instance()
         return mongo_core.get_assets()
 
-    def replace(self, asset_dict):  # client_dict provides the uuid
+    def replace(self, filter, asset_dict):  # client_dict provides the uuid
         """
         Replace an existing document by another using UUID as key. If document does not exist, create one.
         This function should be used by idempotent REST verbs like PUT.
+        :param filter:
         :param asset_dict: Dict representing an asset
         :return: Tuple (boolean, message)
         """

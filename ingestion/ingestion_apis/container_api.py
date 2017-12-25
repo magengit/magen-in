@@ -100,7 +100,7 @@ class ContainerApi(object):
                 html_container.write('</html>\n'.encode("utf-8"))
                 return True
         except Exception as e:
-            with contextlib.suppress(FileNotFoundError):
+            with contextlib.suppress(FileNotFoundError, TypeError):
                 os.remove(html_container_file)
             message = "Failed to create container {}".format(html_container_file)
             logger.error(message + str(e))
@@ -214,6 +214,7 @@ class ContainerApi(object):
         :return: Encrypted file path
         """
         # We open the container
+        enc_out_file_path = None
         try:
             # When decoding b64 the chunk size needs to be a multiple of 4.
             container_file_name = container_file_path.split("/")[-1]
@@ -243,6 +244,8 @@ class ContainerApi(object):
                 mf.close()
                 return enc_out_file_path
         except Exception as e:
+            with contextlib.suppress(FileNotFoundError, TypeError):
+                os.remove(enc_out_file_path)
             message = "Failed to extract encrypted file from container {}".format(container_file_path)
             logger.error(message + str(e))
             return None

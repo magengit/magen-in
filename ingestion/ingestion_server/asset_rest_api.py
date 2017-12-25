@@ -145,33 +145,33 @@ def magen_get_assets():
     return RestServerApis.respond(status, "Get Assets", result)
 
 
-def download_file(asset_url, local_file_path):
-    """
-    Downloads or copy asset and stores it at local_file_path
-    :param asset_url: A HTTP or FILE URL
-    :param local_file_path: A file system path
-    :return: True or False
-    """
-    match = re.search('^file://(.*)', asset_url)
-    try:
-        if match:
-            file_path_in_json = match.group(1).split("localhost")
-            if file_path_in_json[0] != local_file_path:
-                copy2(file_path_in_json[0], local_file_path)
-            return True
-        else:
-            r = RestClientApis.http_get_and_check_success(asset_url, stream=True)
-            if not r.success:
-                logger.error("Could not access URL: %s", asset_url)
-                return False
-
-            with open(local_file_path, 'w+b') as f:
-                shutil.copyfileobj(r.raw, f)
-    except (OSError, IOError) as e:
-        # TODO need to remove copied file
-        logger.error("Could not save file: %s", str(e))
-        return False
-    return True
+# def download_file(asset_url, local_file_path):
+#     """
+#     Downloads or copy asset and stores it at local_file_path
+#     :param asset_url: A HTTP or FILE URL
+#     :param local_file_path: A file system path
+#     :return: True or False
+#     """
+#     match = re.search('^file://(.*)', asset_url)
+#     try:
+#         if match:
+#             file_path_in_json = match.group(1).split("localhost")
+#             if file_path_in_json[0] != local_file_path:
+#                 copy2(file_path_in_json[0], local_file_path)
+#             return True
+#         else:
+#             r = RestClientApis.http_get_and_check_success(asset_url, stream=True)
+#             if not r.success:
+#                 logger.error("Could not access URL: %s", asset_url)
+#                 return False
+#
+#             with open(local_file_path, 'w+b') as f:
+#                 shutil.copyfileobj(r.raw, f)
+#     except (OSError, IOError) as e:
+#         # TODO need to remove copied file
+#         logger.error("Could not save file: %s", str(e))
+#         return False
+#     return True
 
 
 # Creation of Asset
@@ -375,83 +375,83 @@ def magen_get_asset(asset_uuid):
         return RestServerApis.respond(HTTPStatus.NOT_FOUND, "Get Asset", result)
 
 
-@ingestion_bp.route('/upload/', methods=["POST"])
-def upload_file():
-    """
-    REST URL used to upload a file for container creation
-
-    If we get a proper file we create a reference to the contents and request
-    keying material from keyserver. Keying material is sent in base64 format that
-    we need to decode.
-
-    After decoding we create metadata and encrypt the contents. Finally we base64 encode
-    the contents and send back to the client.
-
-    :return: HTTP with proper error code
-    """
-    # Some initialization
-
-    encrypted_stream = None
-    # check if the post request has the file part
-    if 'file' not in request.files:
-        flash('No file part')
-        return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Upload File", {
-            "success": False, "cause": "No File Present", "asset": None})
-    # file_obj is of type FileStorage that is specific to Flask. it support file operations.
-    file_obj = request.files['file']
-    if file_obj.filename == '':
-        flash('No selected file')
-        return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Upload File", {
-            "success": False, "cause": "No File Name", "asset": None})
-    filename = secure_filename(file_obj.filename)
-    # Debug
-    # file_content_ref = file_obj.read()
-    asset_dict = {"filename": filename}
-    success, message, count = AssetCreationApi.process_asset(asset_dict)
-    if success and count:
-        # Since we created an asset, now we will request its key
-        server_urls_instance = ServerUrls().get_instance()
-        key_post_dict = {"asset": {"asset_id": asset_dict["uuid"]}, "format": "json", "ks_type": "local"}
-
-
-        json_post = json.dumps(key_post_dict)
-        post_return_obj = RestClientApis.http_post_and_check_success(server_urls_instance.key_server_asset_url,
-                                                                     json_post)
-        if post_return_obj.success:
-            key_info = post_return_obj.json_body
-            key_b64 = key_info["response"]["key"]
-            # Debug
-            # key_id = key_info["response"]["key_id"]
-            key_iv_b64 = key_info["response"]["iv"]
-            metadata_byte_array = EncryptionApi.create_meta(asset_dict["uuid"])
-            # Decode key material we got from KS
-            iv_decoded = base64.b64decode(key_iv_b64)
-            # For debugging
-            # print("decoded iv is ", iv_decoded, " and is length ", len(iv_decoded))
-            key_decoded = base64.b64decode(key_b64)
-            # For debugging
-            # print("decoded key is ", key_decoded, " and is length ", len(key_decoded))
-            encrypted_stream = EncryptionApi.encrypt_stream_with_metadata(key=key_decoded, key_iv=iv_decoded,
-                                                                          file_obj=file_obj,
-                                                                          metadata_byte_array=metadata_byte_array)
-            # We will convert the stream into bytes so it can be b64 encoded and put into a JSON object
-            # for reply
-            encrypted_stream.seek(0, 0)
-            encrypted_contents = encrypted_stream.read()
-            encrypted_contents_b64 = base64.b64encode(encrypted_contents)
-            # print(encrypted_contents)
-        else:
-            return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Upload File", {
-                "success": False, "cause": "KeyServer Error", "asset": None, "file": encrypted_stream})
-        counters.increment(RestResponse.CREATED, INGESTION)
-    else:
-        logger.error(message)
-        return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Upload File", {
-            "success": False, "cause": message, "asset": None, "file": encrypted_stream})
-    return RestServerApis.respond(HTTPStatus.OK, "Upload File",
-                                  {"success": True, "cause": HTTPStatus.OK.phrase,
-                                   "asset": asset_dict["uuid"],
-                                   "file": encrypted_contents_b64.decode("utf-8")})
+# @ingestion_bp.route('/upload/', methods=["POST"])
+# def upload_file():
+#     """
+#     REST URL used to upload a file for container creation
+#
+#     If we get a proper file we create a reference to the contents and request
+#     keying material from keyserver. Keying material is sent in base64 format that
+#     we need to decode.
+#
+#     After decoding we create metadata and encrypt the contents. Finally we base64 encode
+#     the contents and send back to the client.
+#
+#     :return: HTTP with proper error code
+#     """
+#     # Some initialization
+#
+#     encrypted_stream = None
+#     # check if the post request has the file part
+#     if 'file' not in request.files:
+#         flash('No file part')
+#         return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Upload File", {
+#             "success": False, "cause": "No File Present", "asset": None})
+#     # file_obj is of type FileStorage that is specific to Flask. it support file operations.
+#     file_obj = request.files['file']
+#     if file_obj.filename == '':
+#         flash('No selected file')
+#         return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Upload File", {
+#             "success": False, "cause": "No File Name", "asset": None})
+#     filename = secure_filename(file_obj.filename)
+#     # Debug
+#     # file_content_ref = file_obj.read()
+#     asset_dict = {"filename": filename}
+#     success, message, count = AssetCreationApi.process_asset(asset_dict)
+#     if success and count:
+#         # Since we created an asset, now we will request its key
+#         server_urls_instance = ServerUrls().get_instance()
+#         key_post_dict = {"asset": {"asset_id": asset_dict["uuid"]}, "format": "json", "ks_type": "local"}
+#
+#
+#         json_post = json.dumps(key_post_dict)
+#         post_return_obj = RestClientApis.http_post_and_check_success(server_urls_instance.key_server_asset_url,
+#                                                                      json_post)
+#         if post_return_obj.success:
+#             key_info = post_return_obj.json_body
+#             key_b64 = key_info["response"]["key"]
+#             # Debug
+#             # key_id = key_info["response"]["key_id"]
+#             key_iv_b64 = key_info["response"]["iv"]
+#             metadata_byte_array = EncryptionApi.create_meta(asset_dict["uuid"])
+#             # Decode key material we got from KS
+#             iv_decoded = base64.b64decode(key_iv_b64)
+#             # For debugging
+#             # print("decoded iv is ", iv_decoded, " and is length ", len(iv_decoded))
+#             key_decoded = base64.b64decode(key_b64)
+#             # For debugging
+#             # print("decoded key is ", key_decoded, " and is length ", len(key_decoded))
+#             encrypted_stream = EncryptionApi.encrypt_stream_with_metadata(key=key_decoded, key_iv=iv_decoded,
+#                                                                           file_obj=file_obj,
+#                                                                           metadata_byte_array=metadata_byte_array)
+#             # We will convert the stream into bytes so it can be b64 encoded and put into a JSON object
+#             # for reply
+#             encrypted_stream.seek(0, 0)
+#             encrypted_contents = encrypted_stream.read()
+#             encrypted_contents_b64 = base64.b64encode(encrypted_contents)
+#             # print(encrypted_contents)
+#         else:
+#             return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Upload File", {
+#                 "success": False, "cause": "KeyServer Error", "asset": None, "file": encrypted_stream})
+#         counters.increment(RestResponse.CREATED, INGESTION)
+#     else:
+#         logger.error(message)
+#         return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Upload File", {
+#             "success": False, "cause": message, "asset": None, "file": encrypted_stream})
+#     return RestServerApis.respond(HTTPStatus.OK, "Upload File",
+#                                   {"success": True, "cause": HTTPStatus.OK.phrase,
+#                                    "asset": asset_dict["uuid"],
+#                                    "file": encrypted_contents_b64.decode("utf-8")})
 
 
 @ingestion_bp_v2.route("/test_counters/increment/", methods=["GET"])

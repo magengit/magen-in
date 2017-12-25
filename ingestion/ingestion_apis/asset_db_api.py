@@ -85,4 +85,4 @@ class AssetDbApi(object):
         :return: Tuple (boolean, message).l
         """
         db = MainDb.get_core_db_instance()
-        return db.asset_strategy.replace(asset_dict)
+        return db.asset_strategy.replace(None, asset_dict)
