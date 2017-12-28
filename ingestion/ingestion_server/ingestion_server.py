@@ -13,6 +13,7 @@ import errno
 from magen_rest_apis.magen_app import MagenApp
 # If this is being run from workspace (as main module),
 # import dev/magen_env.py to add workspace package directories.
+from ingestion.ingestion_server.ingestion_file_upload_rest_api import ingestion_file_upload_bp
 
 src_ver = MagenApp.app_source_version(__name__)
 if src_ver:
@@ -152,6 +153,7 @@ def main(args):
     magen.register_blueprint(sourced_counters)
     magen.register_blueprint(ingestion_bp, url_prefix='/magen/ingestion/v1')
     magen.register_blueprint(ingestion_bp_v2, url_prefix='/magen/ingestion/v2')
+    magen.register_blueprint(ingestion_file_upload_bp, url_prefix='/magen/ingestion/v2')
     magen.register_blueprint(configuration, url_prefix='/magen/ingestion/v1')
 
     if args.test:

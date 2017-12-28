@@ -9,11 +9,9 @@ import os
 
 import requests
 from lxml import etree
-from datetime import datetime
 
 from magen_rest_apis.magen_app import CustomJSONEncoder
 from magen_logger.logger_config import LogDefaults
-from magen_utils_apis.datetime_api import SimpleUtc
 
 from ingestion.ingestion_apis.encryption_api import EncryptionApi, FILE_LEN_SIZE, IV_LEN_SIZE, B64_FILE_IV_SIZE
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals

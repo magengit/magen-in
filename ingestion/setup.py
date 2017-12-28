@@ -25,7 +25,7 @@ setup(
         'lxml>=4.1.0',
         'pycrypto>=2.6.1',
         'pymongo>=3.4.0',
-        'pytest>=3.1.3',
+        'pytest>=3.3.1',
         'requests>=2.13.0',
         'responses>=0.5.1',
         'Sphinx>=1.6.3',

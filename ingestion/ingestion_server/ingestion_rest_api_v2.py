@@ -28,7 +28,7 @@ logger = logging.getLogger(LogDefaults.default_log_name)
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 UPLOAD_FOLDER = dir_path + '/magen_files'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'docx'}
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'docx', 'zip'}
 CONTAINER_VERSION = 2
 
 __author__ = "Reinaldo Penno repenno@cisco.com"
@@ -71,6 +71,11 @@ def upload_file():
             return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Upload File", {
                 "success": False, "cause": "No File Name", "asset": None, "container_version": CONTAINER_VERSION,
                 "container": None})
+        # if not allowed_file(file_obj.filename):
+        #     flash('File type forbidden')
+        #     return RestServerApis.respond(HTTPStatus.FORBIDDEN, "Upload File", {
+        #         "success": False, "cause": "No File Name", "asset": None, "container_version": CONTAINER_VERSION,
+        #         "container": None})
         file_name = secure_filename(file_obj.filename)
         asset_dict = {"file_name": file_name}
         dst_file_path = os.path.join(IngestionGlobals().data_dir, file_name)
