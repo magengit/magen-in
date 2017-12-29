@@ -4,6 +4,7 @@ branch = True
 source = ./ingestion_apis,./ingestion_server,./ingestion_mongo_apis
 omit =
     container_test/*
+    ingestion_server/file_upload/*
     # omit this single file
     ingestion_apis/container_api.py
 

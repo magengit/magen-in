@@ -28,7 +28,7 @@ logger = logging.getLogger(LogDefaults.default_log_name)
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 UPLOAD_FOLDER = dir_path + '/magen_files'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'docx', 'zip'}
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'md', 'docx', 'zip'}
 CONTAINER_VERSION = 2
 
 __author__ = "Reinaldo Penno repenno@cisco.com"
@@ -111,21 +111,6 @@ def build_file_upload_error_response(asset: dict, error_msg: str=""):
     return response
 
 
-#
-# {"files": [
-#   {
-#     "name": "picture1.jpg",
-#     "size": 902604,
-#     "error": "Filetype not allowed"
-#   },
-#   {
-#     "name": "picture2.jpg",
-#     "size": 841946,
-#     "error": "Filetype not allowed"
-#   }
-# ]}
-
-
 def allowed_file(filename):
     """
     Checks if the uploaded file has an allowed extension
@@ -151,20 +136,16 @@ def file_upload():
     try:
 
         if 'files[]' not in request.files:
-            flash('No file part')
-            return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Upload File", {
-                "success": False, "cause": "No File Present", "asset": None, "container_version": CONTAINER_VERSION,
-                "container": None})
+            response = build_file_upload_error_response(asset_dict, HTTPStatus.BAD_REQUEST.phrase)
+            return json.dumps(response), HTTPStatus.BAD_REQUEST
 
         file_obj = request.files['files[]']
 
         file_name = secure_filename(file_obj.filename)
 
         if file_name == '':
-            flash('No selected file')
-            return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Upload File", {
-                "success": False, "cause": "No File Name", "asset": None, "container_version": CONTAINER_VERSION,
-                "container": None})
+            response = build_file_upload_error_response(asset_dict, HTTPStatus.BAD_REQUEST.phrase)
+            return json.dumps(response), HTTPStatus.BAD_REQUEST
 
         if not allowed_file(file_name):
             asset_dict["file_name"] = file_name

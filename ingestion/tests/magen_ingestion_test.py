@@ -34,6 +34,7 @@ from magen_rest_apis.rest_client_apis import RestClientApis
 from magen_rest_apis.rest_return_api import RestReturn
 from magen_utils_apis.domain_resolver import mongo_host_port
 
+from ingestion.ingestion_server.ingestion_file_upload_rest_api import ingestion_file_upload_bp
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
 from ingestion.ingestion_server.ingestion_rest_api_v2 import ingestion_bp_v2
 from ingestion.tests.magen_env import *
@@ -96,6 +97,7 @@ class TestRestApi(unittest.TestCase):
         cls.magen.register_blueprint(ingestion_bp, url_prefix='/magen/ingestion/v1')
         cls.magen.register_blueprint(ingestion_bp_v2, url_prefix='/magen/ingestion/v2')
         cls.magen.register_blueprint(configuration, url_prefix='/magen/ingestion/v1')
+        cls.magen.register_blueprint(ingestion_file_upload_bp, url_prefix='/magen/ingestion/v2')
         cls.app = cls.magen.test_client()
 
     def setUp(self):
@@ -1121,3 +1123,247 @@ class TestRestApi(unittest.TestCase):
             b'c9243e28-238d-41b6-9c5e-37f0b1be4dae,Cisco0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
         ret = EncryptionApi.create_meta("c9243e28-238d-41b6-9c5e-37f0b1be4dae")
         self.assertEqual(orig, ret)
+
+    def test_JQuery_UploadFile_with_Mock_KS(self):
+        """
+        This test simulates the jquery-file-upload client. It uploads a file through POST form data.
+        It checks the response was 200OK.
+        """
+        print("+++++++++ test_JQuery_UploadFile_with_Mock_KS Test +++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        try:
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            key = ks_post_resp_json_obj["response"]["key"]
+            key_iv = ks_post_resp_json_obj["response"]["iv"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+
+    def test_JQuery_UploadFile_with_Mock_KS_Fail(self):
+        """
+        This test simulates the jquery-file-upload client. It uploads a file through POST form data.
+        It passes a forbidden file name so you should get a 403 response
+        """
+        print("+++++++++ test_JQuery_UploadFile_with_Mock_KS Test +++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.sh"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        try:
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            key = ks_post_resp_json_obj["response"]["key"]
+            key_iv = ks_post_resp_json_obj["response"]["iv"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(post_resp_obj.status_code, HTTPStatus.FORBIDDEN)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+
+    def test_JQuery_UploadFile_with_Mock_KS_Fail_BADREQUEST(self):
+        """
+        This test simulates the jquery-file-upload client. It uploads a file through POST form data.
+        It passes the wrong array name so the test will fail on purpose
+        """
+        print("+++++++++ test_JQuery_UploadFile_with_Mock_KS_Fail_BADREQUEST Test +++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.sh"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        try:
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # files instead of the correct files[]
+            files = {'files': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            key = ks_post_resp_json_obj["response"]["key"]
+            key_iv = ks_post_resp_json_obj["response"]["iv"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(post_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+
+    def test_JQuery_UploadFile_with_Mock_KS_Fail_BADREQUEST_EMPTY_FILENAME(self):
+        """
+        This test simulates the jquery-file-upload client. It uploads a file through POST form data.
+        It passes the wrong array name so the test will fail on purpose
+        """
+        print("+++++++++ test_JQuery_UploadFile_with_Mock_KS_Fail_BADREQUEST_EMPTY_FILENAME Test +++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.sh"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        try:
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # files instead of the correct files[]
+            files = {'files[]': (file_full_path, "", 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            key = ks_post_resp_json_obj["response"]["key"]
+            key_iv = ks_post_resp_json_obj["response"]["iv"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(post_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+
+    def test_JQuery_UploadFile_with_Mock_KS_Fail_IndexError(self):
+        """
+        This test simulates the jquery-file-upload client. It uploads a file through POST form data.
+        It passes the wrong array name so the test will fail on purpose
+        """
+        print("+++++++++ test_JQuery_UploadFile_with_Mock_KS_Fail_BADREQUEST_EMPTY_FILENAME Test +++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        try:
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # files instead of the correct files[]
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            mock = Mock(side_effect=IndexError)
+            with patch('ingestion.ingestion_apis.asset_creation_api.AssetCreationApi.process_asset', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(post_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+
+    def test_JQuery_UploadFile_with_Mock_KS_Fail_ValueError(self):
+        """
+        This test simulates the jquery-file-upload client. It uploads a file through POST form data.
+        It passes the wrong array name so the test will fail on purpose
+        """
+        print("+++++++++ test_JQuery_UploadFile_with_Mock_KS_Fail_BADREQUEST_EMPTY_FILENAME Test +++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        try:
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # files instead of the correct files[]
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            mock = Mock(side_effect=ValueError)
+            with patch('ingestion.ingestion_apis.asset_creation_api.AssetCreationApi.process_asset', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(post_resp_obj.status_code, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
