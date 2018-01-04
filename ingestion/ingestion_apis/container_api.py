@@ -29,7 +29,7 @@ class ContainerApi(object):
     def create_html_file_container_from_file(metadata_dict, metab64_str, enc_b64_file, html_container_file,
                                              chunk_size=1024):
         """
-        Creates a HTML container file for the Asset
+        Creates a HTML container file for the Asset. It will actually write the file to disk.
         :return: True or False
         :rtype: string
         :param metadata_dict: A dictionary that contains the asset metadata

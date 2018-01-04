@@ -4,8 +4,10 @@ import logging
 
 from http import HTTPStatus
 
+import gridfs
 import magen_statistics_server.counters as counters
 from flask import request, flash, Blueprint, send_from_directory
+from magen_datastore_apis.main_db import MainDb
 from werkzeug.exceptions import BadRequest
 
 from ingestion.ingestion_apis.asset_db_api import AssetDbApi
@@ -28,7 +30,7 @@ logger = logging.getLogger(LogDefaults.default_log_name)
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 UPLOAD_FOLDER = dir_path + '/magen_files'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'md', 'docx', 'zip'}
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'md', 'docx', 'zip', 'json'}
 CONTAINER_VERSION = 2
 
 __author__ = "Reinaldo Penno repenno@cisco.com"
@@ -155,7 +157,7 @@ def file_upload():
         asset_dict["file_name"] = file_name
         dst_file_path = os.path.join(IngestionGlobals().data_dir, file_name)
         enc_file_path = dst_file_path + ".enc"
-        asset_dict["file_path"] = dst_file_path
+        # asset_dict["file_path"] = dst_file_path
 
         # Populate asset id
         success, message, count = AssetCreationApi.process_asset(asset_dict)
@@ -209,6 +211,19 @@ def file_upload():
                 if not ContainerApi.create_html_file_container_from_file(metadata_dict, metadata_b64_str,
                                                                          base64_file_path, html_container_path):
                     raise Exception("Failed to create container: {}".format(dst_file_path))
+
+                # GridFS file storage
+                db_core = MainDb.get_core_db_instance()
+                # TODO bucket name, owner and group should be based on user login such as email
+                with open(html_container_path, "rb") as magen_file_upload:
+                    fs = gridfs.GridFSBucket(db_core.get_magen_mdb(), bucket_name="Alice")
+                    iid = fs.upload_from_stream(os.path.split(html_container_path)[1], magen_file_upload,
+                                                metadata={"owner": "Alice", "group": "users", "file_name": file_name,
+                                                          "asset_uuid": asset_dict["uuid"]})
+                    assert iid is not 0
+                    seed = {"uuid": asset_dict["uuid"]}
+                    mongo_return = db_core.asset_strategy.update(seed, {'$set': {"grid_fid": iid}})
+                    assert mongo_return.success is True
 
                 counters.increment(RestResponse.CREATED, INGESTION)
                 file_upload_response = build_file_upload_response(asset_dict)
