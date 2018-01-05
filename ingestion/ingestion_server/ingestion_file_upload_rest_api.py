@@ -167,7 +167,7 @@ def file_upload():
             # We need a dict that can be JSONified cleanly
             asset_dict_json = dict(asset_dict)
             asset_dict_json.pop('_id', None)
-            asset_dict_json.pop('file_path', None)
+            # asset_dict_json.pop('file_path', None)
             server_urls_instance = ServerUrls().get_instance()
             key_post_dict = {"asset": {"asset_id": asset_dict["uuid"]}, "format": "json", "ks_type": "local"}
 
