@@ -1151,6 +1151,7 @@ class TestRestApi(unittest.TestCase):
         file_name = "test_up.txt"
         base_path = type(self).ingestion_globals.data_dir
         file_full_path = os.path.join(base_path, file_name)
+        delete_url = None
         try:
             magen_file = open(file_full_path, 'w+')
             magen_file.write("this is a test")
@@ -1168,6 +1169,8 @@ class TestRestApi(unittest.TestCase):
                 post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
                                                     headers={'content-type': 'multipart/form-data'})
                 self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_url = post_resp_json_obj["files"][0]["url"]
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
@@ -1181,6 +1184,7 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+            type(self).app.delete(delete_url)
 
     def test_JQuery_UploadFile_with_Mock_KS_Fail(self):
         """
