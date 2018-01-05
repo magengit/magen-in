@@ -332,14 +332,20 @@ def magen_delete_asset(asset_uuid):
     """
     try:
         success, documents, msg = AssetDbApi.get_asset(asset_uuid)
+        if not success or not documents:
+            result = {
+                "success": success,
+                "asset": asset_uuid,
+                "cause": msg
+            }
+            return RestServerApis.respond(HTTPStatus.NOT_FOUND, "Delete Asset",
+                                          result)
         grid_fid = documents[0].get("grid_fid", None)
         if grid_fid:
             # If this asset is stored within MongoDB we need to remove it.
             db_core = MainDb.get_core_db_instance()
             fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
             fs.delete(grid_fid)
-        if not success:
-            raise ValueError
         success, count, msg = AssetDbApi.delete_one(asset_uuid, asset_dict=None)
         result = {
             "success": success,

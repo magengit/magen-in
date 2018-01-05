@@ -391,11 +391,11 @@ class TestRestApi(unittest.TestCase):
         server_urls_instance = ServerUrls().get_instance()
         asset_put = json.loads(MAGEN_SINGLE_ASSET_FINANCE_PUT)
         put_url = server_urls_instance.ingestion_server_single_asset_url.format(asset_put["asset"][0]["uuid"])
-        mock = Mock(return_value=(False, 0, "Failed to delete"))
-        with patch('ingestion.ingestion_apis.asset_db_api.AssetDbApi.delete_one', new=mock):
+        mock = Mock(return_value=(False, 0, "Document not found"))
+        with patch('ingestion.ingestion_apis.asset_db_api.AssetDbApi.get_asset', new=mock):
             put_resp_obj = type(self).app.delete(put_url, data=MAGEN_SINGLE_ASSET_FINANCE_PUT,
                                                  headers=RestClientApis.put_json_headers)
-            self.assertEqual(put_resp_obj.status_code, HTTPStatus.INTERNAL_SERVER_ERROR)
+            self.assertEqual(put_resp_obj.status_code, HTTPStatus.NOT_FOUND)
 
     def test_SingleAssetDelete_Fail_ValueError(self):
         """
@@ -407,9 +407,8 @@ class TestRestApi(unittest.TestCase):
         asset_put = json.loads(MAGEN_SINGLE_ASSET_FINANCE_PUT)
         put_url = server_urls_instance.ingestion_server_single_asset_url.format(asset_put["asset"][0]["uuid"])
         mock = Mock(side_effect=ValueError("test_SingleAssetDelete_Fail_ValueError"))
-        with patch('ingestion.ingestion_apis.asset_db_api.AssetDbApi.delete_one', new=mock):
-            put_resp_obj = type(self).app.delete(put_url, data=MAGEN_SINGLE_ASSET_FINANCE_PUT,
-                                                 headers=RestClientApis.put_json_headers)
+        with patch('ingestion.ingestion_apis.asset_db_api.AssetDbApi.get_asset', new=mock):
+            put_resp_obj = type(self).app.delete(put_url)
             self.assertEqual(put_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
 
     def test_SingleAssetPost_Fail_CreateAssetFromJson(self):
@@ -1058,7 +1057,6 @@ class TestRestApi(unittest.TestCase):
             magen_file_out.close()
             files_equal = filecmp.cmp(src_file_full_path, grid_file_full_path)
             self.assertTrue(files_equal)
-            fs.delete(iid)
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
