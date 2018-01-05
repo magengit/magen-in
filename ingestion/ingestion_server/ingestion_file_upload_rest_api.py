@@ -14,15 +14,15 @@ from ingestion.ingestion_apis.asset_db_api import AssetDbApi
 from ingestion.ingestion_apis.container_api import ContainerApi
 from ingestion.ingestion_apis.encryption_api import EncryptionApi
 from magen_rest_apis.rest_client_apis import RestClientApis
-from magen_rest_apis.rest_server_apis import RestServerApis
 from magen_rest_apis.server_urls import ServerUrls
-from magen_statistics_api.metric_flavors import RestResponse, RestRequest
 from werkzeug.utils import secure_filename
 
 from ingestion.ingestion_apis.asset_creation_api import AssetCreationApi
 from magen_logger.logger_config import LogDefaults
 
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
+from prometheus_client import Counter
+
 
 project_root = os.path.dirname(__file__)
 template_path = os.path.join(project_root, 'templates')
@@ -40,6 +40,8 @@ __status__ = "alpha"
 
 INGESTION = "Ingestion"
 ingestion_file_upload_bp = Blueprint('ingestion_file_upload', __name__, template_folder=template_path)
+file_upload_counter = Counter('file_uploads_total', 'Total files uploaded')
+file_upload_exception_counter = Counter('file_uploads_exception_total', 'Total upload failures')
 
 
 def build_file_upload_response(asset: dict):
@@ -216,7 +218,7 @@ def file_upload():
                 db_core = MainDb.get_core_db_instance()
                 # TODO bucket name, owner and group should be based on user login such as email
                 with open(html_container_path, "rb") as magen_file_upload:
-                    fs = gridfs.GridFSBucket(db_core.get_magen_mdb(), bucket_name="Alice")
+                    fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
                     iid = fs.upload_from_stream(os.path.split(html_container_path)[1], magen_file_upload,
                                                 metadata={"owner": "Alice", "group": "users", "file_name": file_name,
                                                           "asset_uuid": asset_dict["uuid"]})
@@ -225,7 +227,7 @@ def file_upload():
                     mongo_return = db_core.asset_strategy.update(seed, {'$set': {"grid_fid": iid}})
                     assert mongo_return.success is True
 
-                counters.increment(RestResponse.CREATED, INGESTION)
+                file_upload_counter.inc()
                 file_upload_response = build_file_upload_response(asset_dict)
                 resp = json.dumps(file_upload_response)
                 return resp, HTTPStatus.OK
@@ -237,7 +239,7 @@ def file_upload():
     except (KeyError, IndexError, BadRequest) as e:
         if asset_process_success:
             AssetDbApi.delete_one(asset_dict['uuid'])
-        counters.increment(RestResponse.BAD_REQUEST, INGESTION)
+        file_upload_exception_counter.inc()
         message = str(e)
         response = build_file_upload_error_response(asset_dict, message)
         return json.dumps(response), HTTPStatus.BAD_REQUEST
@@ -245,7 +247,7 @@ def file_upload():
     except Exception as e:
         if asset_process_success:
             AssetDbApi.delete_one(asset_dict['uuid'])
-        counters.increment(RestResponse.INTERNAL_SERVER_ERROR, INGESTION)
+        file_upload_exception_counter.inc()
         message = str(e)
         response = build_file_upload_error_response(asset_dict, message)
         return json.dumps(response), HTTPStatus.INTERNAL_SERVER_ERROR

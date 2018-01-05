@@ -7,8 +7,10 @@ import re
 from shutil import copy2
 from http import HTTPStatus
 
+import gridfs
 import magen_statistics_server.counters as counters
 from flask import request, flash, Blueprint
+from magen_datastore_apis.main_db import MainDb
 from magen_logger.logger_config import LogDefaults
 from magen_rest_apis.rest_client_apis import RestClientApis
 from magen_rest_apis.rest_server_apis import RestServerApis
@@ -16,6 +18,7 @@ from magen_rest_apis.server_urls import ServerUrls
 from magen_statistics_api.metric_flavors import RestResponse, RestRequest
 from magen_utils_apis.datetime_api import datetime_parse_iso8601_string_to_utc
 from magen_utils_apis.domain_resolver import inside_docker
+from prometheus_client import Counter
 from werkzeug.exceptions import BadRequest
 from werkzeug.utils import secure_filename
 
@@ -61,6 +64,8 @@ INGESTION = "Ingestion"
 
 ingestion_bp = Blueprint('ingestion', __name__, template_folder=template_path)
 configuration = Blueprint('configuration', __name__)
+
+delete_asset_counter = Counter('delete_asset_total', 'Total assets deleted')
 
 
 # Assets
@@ -326,7 +331,15 @@ def magen_delete_asset(asset_uuid):
     :return: HTTP Response with the appropriate payload
     """
     try:
-        counters.increment(RestRequest.DELETE, INGESTION)
+        success, documents, msg = AssetDbApi.get_asset(asset_uuid)
+        grid_fid = documents[0].get("grid_fid", None)
+        if grid_fid:
+            # If this asset is stored within MongoDB we need to remove it.
+            db_core = MainDb.get_core_db_instance()
+            fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+            fs.delete(grid_fid)
+        if not success:
+            raise ValueError
         success, count, msg = AssetDbApi.delete_one(asset_uuid, asset_dict=None)
         result = {
             "success": success,
@@ -335,20 +348,17 @@ def magen_delete_asset(asset_uuid):
         }
         if success:
             if count:
-                counters.increment(RestResponse.OK, INGESTION)
+                delete_asset_counter.inc()
                 return RestServerApis.respond(HTTPStatus.OK, "Delete Asset",
                                               result)
             else:
-                counters.increment(RestResponse.NOT_FOUND, INGESTION)
                 return RestServerApis.respond(HTTPStatus.NOT_FOUND, "Delete Asset",
                                               result)
         else:
-            counters.increment(RestResponse.INTERNAL_SERVER_ERROR, INGESTION)
             return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Delete Asset",
                                           result)
     except ValueError as e:
-        counters.increment(RestResponse.BAD_REQUEST, INGESTION)
-        return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Create Asset", {
+        return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Delete Asset", {
             "success": False, "cause": e.args[0], "asset": asset_uuid})
 
 

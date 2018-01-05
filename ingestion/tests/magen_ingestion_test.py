@@ -547,6 +547,7 @@ class TestRestApi(unittest.TestCase):
         server_urls_instance = ServerUrls().get_instance()
         file_name = "test_up.txt"
         src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        asset_uuid = None
         try:
             magen_file = open(src_file_full_path, 'w+')
             magen_file.write("this is a test")
@@ -565,6 +566,7 @@ class TestRestApi(unittest.TestCase):
                                                     headers={'content-type': 'multipart/form-data'})
                 self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
                 post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                asset_uuid = post_resp_json_obj["response"]["asset"]
                 container_out_file_path = src_file_full_path + ".out.html"
                 with open(container_out_file_path, "wb+") as container_f:
                     container_f.write(post_resp_json_obj["response"]["container"].encode("utf-8"))
@@ -591,6 +593,7 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+            type(self).app.delete(server_urls_instance.ingestion_server_single_asset_url.format(asset_uuid))
 
     @unittest.expectedFailure
     def test_Create_Asset_with_File_URL(self):
@@ -603,6 +606,7 @@ class TestRestApi(unittest.TestCase):
         server_urls_instance = ServerUrls().get_instance()
         file_name = "test_up.txt"
         src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        asset_uuid = None
         try:
             magen_file = open(src_file_full_path, 'w+')
             magen_file.write("this is a test")
@@ -612,6 +616,8 @@ class TestRestApi(unittest.TestCase):
             post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_asset_url,
                                                 data=json.dumps(post_json),
                                                 headers={'content-type': 'application/json'})
+            post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+            asset_uuid = post_resp_json_obj["response"]["asset"]["uuid"]
             # "http://localhost:5020/magen/ingestion/v2/upload/"
             self.assertEqual(post_resp_obj.status_code, HTTPStatus.CREATED)
 
@@ -645,6 +651,7 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+            type(self).app.delete(server_urls_instance.ingestion_server_single_asset_url.format(asset_uuid))
 
     def test_Create_Asset_with_File_URL_Mock(self):
         """
@@ -657,7 +664,7 @@ class TestRestApi(unittest.TestCase):
         file_name = "test_up.txt"
         base_path = type(self).ingestion_globals.data_dir
         file_full_path = os.path.join(base_path, file_name)
-
+        asset_uuid = None
         try:
 
             ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
@@ -679,6 +686,8 @@ class TestRestApi(unittest.TestCase):
                                                     headers={'content-type': 'application/json'})
 
                 self.assertEqual(post_resp_obj.status_code, HTTPStatus.CREATED)
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                asset_uuid = post_resp_json_obj["response"]["asset"]["uuid"]
                 container_file_path = file_full_path + ".html"
                 metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(
                     container_file_path)
@@ -720,6 +729,7 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+            type(self).app.delete(server_urls_instance.ingestion_server_single_asset_url.format(asset_uuid))
 
     def test_UploadFile_with_Mock_KS(self):
         """
@@ -733,6 +743,7 @@ class TestRestApi(unittest.TestCase):
         file_name = "test_up.txt"
         base_path = type(self).ingestion_globals.data_dir
         file_full_path = os.path.join(base_path, file_name)
+        asset_uuid = None
         try:
             magen_file = open(file_full_path, 'w+')
             magen_file.write("this is a test")
@@ -750,6 +761,7 @@ class TestRestApi(unittest.TestCase):
                                                     headers={'content-type': 'multipart/form-data'})
                 self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
                 post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                asset_uuid = post_resp_json_obj["response"]["asset"]
                 container_file_path = file_full_path + ".html"
                 with open(container_file_path, "wb+") as container_f:
                     container_f.write(post_resp_json_obj["response"]["container"].encode("utf-8"))
@@ -789,6 +801,7 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+            type(self).app.delete(server_urls_instance.ingestion_server_single_asset_url.format(asset_uuid))
 
     @unittest.expectedFailure
     def test_UploadFile_CustomKS(self):
@@ -803,7 +816,7 @@ class TestRestApi(unittest.TestCase):
         file_name = "test_up.txt"
         base_path = type(self).ingestion_globals.data_dir
         file_full_path = os.path.join(base_path, file_name)
-
+        asset_uuid = None
         try:
             magen_file = open(file_full_path, 'w+')
             magen_file.write("this is a test")
@@ -813,6 +826,7 @@ class TestRestApi(unittest.TestCase):
                                                 headers={'content-type': 'multipart/form-data'})
             self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
             post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+            asset_uuid = post_resp_json_obj["response"]["asset"]
             container_out_file_path = file_full_path + ".out.html"
             with open(container_out_file_path, "wb+") as container_f:
                 container_f.write(post_resp_json_obj["response"]["container"].encode("utf-8"))
@@ -861,6 +875,7 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+            type(self).app.delete(server_urls_instance.ingestion_server_single_asset_url.format(asset_uuid))
 
     # @unittest.skipIf(os.environ.get('TRAVIS'), "not supported in CI")
     # def test_Create_Asset_with_Large_File_URL(self):
@@ -1043,6 +1058,7 @@ class TestRestApi(unittest.TestCase):
             magen_file_out.close()
             files_equal = filecmp.cmp(src_file_full_path, grid_file_full_path)
             self.assertTrue(files_equal)
+            fs.delete(iid)
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))

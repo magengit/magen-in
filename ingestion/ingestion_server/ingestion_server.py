@@ -36,6 +36,7 @@ from ingestion.ingestion_mongo_apis.mongo_asset import MongoAsset
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
 from magen_utils_apis.domain_resolver import mongo_host_port, LOCAL_MONGO_LOCATOR, inside_docker
 from ingestion.ingestion_server.ingestion_rest_api_v2 import ingestion_bp_v2
+from prometheus_client import start_http_server
 
 __author__ = "Reinaldo Penno repenno@cisco.com"
 __copyright__ = "Copyright(c) 2015, Cisco Systems, Inc."
@@ -161,6 +162,7 @@ def main(args):
     elif args.unittest:
         pass
     else:
+        start_http_server(8000)
         magen.run(host='0.0.0.0', port=INGESTION_SERVER_PORT, debug=False, threaded=True)
 
 if __name__ == "__main__":
