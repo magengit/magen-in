@@ -259,129 +259,129 @@ class TestRestApi(unittest.TestCase):
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
 
-    @unittest.expectedFailure
-    def test_SingleAssetPost_SingleAssetPut(self):
-        """
-        Creates a single magen_resource with POST and updates it with PUT
-        """
-        print("+++++++++Single Asset POST, Update with PUT  Test+++++++++")
-        location_header = None
-        server_urls_instance = ServerUrls().get_instance()
-        file_name = "test_up.txt"
-        src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
-        try:
-            magen_file = open(src_file_full_path, 'w+')
-            magen_file.write("this is a test")
-            magen_file.close()
-            post_json = json.loads(MAGEN_INGESTION_POST_WITH_EMPTY_DOWNLOAD_URL)
-            post_json["asset"][0]["download_url"] = "file://" + src_file_full_path
-            post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_asset_url,
-                                                data=json.dumps(post_json),
-                                                headers={'content-type': 'application/json'})
-            # "http://localhost:5020/magen/ingestion/v2/upload/"
-            self.assertEqual(post_resp_obj.status_code, HTTPStatus.CREATED)
+    # @unittest.expectedFailure
+    # def test_SingleAssetPost_SingleAssetPut(self):
+    #     """
+    #     Creates a single magen_resource with POST and updates it with PUT
+    #     """
+    #     print("+++++++++Single Asset POST, Update with PUT  Test+++++++++")
+    #     location_header = None
+    #     server_urls_instance = ServerUrls().get_instance()
+    #     file_name = "test_up.txt"
+    #     src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+    #     try:
+    #         magen_file = open(src_file_full_path, 'w+')
+    #         magen_file.write("this is a test")
+    #         magen_file.close()
+    #         post_json = json.loads(MAGEN_INGESTION_POST_WITH_EMPTY_DOWNLOAD_URL)
+    #         post_json["asset"][0]["download_url"] = "file://" + src_file_full_path
+    #         post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_asset_url,
+    #                                             data=json.dumps(post_json),
+    #                                             headers={'content-type': 'application/json'})
+    #         # "http://localhost:5020/magen/ingestion/v2/upload/"
+    #         self.assertEqual(post_resp_obj.status_code, HTTPStatus.CREATED)
+    #
+    #         headers = post_resp_obj.headers
+    #         for header in headers:
+    #             if header[0] == "location":
+    #                 location_header = header[1]
+    #                 break
+    #
+    #         self.assertIsNotNone(location_header)
+    #         # We patch the standard message with the uuid returned in the location header
+    #         asset_put = json.loads(MAGEN_SINGLE_ASSET_FINANCE_PUT)
+    #         url_components_list = location_header.split("/")
+    #         asset_uuid = url_components_list[-2]
+    #         asset_put["asset"][0]["uuid"] = asset_uuid
+    #
+    #         put_resp_obj = type(self).app.put(location_header, data=json.dumps(asset_put),
+    #                                           headers=RestClientApis.put_json_headers)
+    #
+    #         self.assertEqual(put_resp_obj.status_code, HTTPStatus.CREATED)
+    #
+    #         get_resp_obj = self.app.get(location_header)
+    #         get_resp_json = json.loads(get_resp_obj.data.decode("utf-8"))
+    #         self.assertEqual(get_resp_obj.status_code, HTTPStatus.OK)
+    #         success = compare_utils.default_full_compare_dict(get_resp_json,
+    #                                                           json.loads(MAGEN_SINGLE_ASSET_FINANCE_GET_RESP))
+    #         self.assertTrue(success)
+    #     except (OSError, IOError) as e:
+    #         print("Failed to open file: {}".format(e))
+    #         self.assertTrue(False)
+    #     except (KeyError, IndexError) as e:
+    #         print("Decoding error: {}".format(e))
+    #         self.assertTrue(False)
+    #     except Exception as e:
+    #         print("Verification Error: {}".format(e))
+    #         self.assertTrue(False)
+    #     finally:
+    #         for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+    #             os.remove(filename)
 
-            headers = post_resp_obj.headers
-            for header in headers:
-                if header[0] == "location":
-                    location_header = header[1]
-                    break
+    # @unittest.expectedFailure
+    # def test_SingleAssetPost_SingleAssetPut_Fail(self):
+    #
+    #     """
+    #     Creates a single magen_resource with POST and updates it with PUT
+    #     """
+    #     print("+++++++++Single Asset POST, Update with PUT  Test+++++++++")
+    #
+    #     location_header = None
+    #     server_urls_instance = ServerUrls().get_instance()
+    #     file_name = "test_up.txt"
+    #     src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+    #     try:
+    #         magen_file = open(src_file_full_path, 'w+')
+    #         magen_file.write("this is a test")
+    #         magen_file.close()
+    #         post_json = json.loads(MAGEN_INGESTION_POST_WITH_EMPTY_DOWNLOAD_URL)
+    #         post_json["asset"][0]["download_url"] = "file://" + src_file_full_path
+    #         post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_asset_url,
+    #                                             data=json.dumps(post_json),
+    #                                             headers={'content-type': 'application/json'})
+    #         # "http://localhost:5020/magen/ingestion/v2/upload/"
+    #         self.assertEqual(post_resp_obj.status_code, HTTPStatus.CREATED)
+    #
+    #         headers = post_resp_obj.headers
+    #         for header in headers:
+    #             if header[0] == "location":
+    #                 location_header = header[1]
+    #                 break
+    #
+    #         self.assertIsNotNone(location_header)
+    #         asset_put = json.loads(MAGEN_SINGLE_ASSET_FINANCE_PUT)
+    #
+    #         put_resp_obj = type(self).app.put(location_header, data=json.dumps(asset_put),
+    #                                           headers=RestClientApis.put_json_headers)
+    #
+    #         self.assertEqual(put_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
+    #     except (OSError, IOError) as e:
+    #         print("Failed to open file: {}".format(e))
+    #         self.assertTrue(False)
+    #     except (KeyError, IndexError) as e:
+    #         print("Decoding error: {}".format(e))
+    #         self.assertTrue(False)
+    #     except Exception as e:
+    #         print("Verification Error: {}".format(e))
+    #         self.assertTrue(False)
+    #     finally:
+    #         for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+    #             os.remove(filename)
 
-            self.assertIsNotNone(location_header)
-            # We patch the standard message with the uuid returned in the location header
-            asset_put = json.loads(MAGEN_SINGLE_ASSET_FINANCE_PUT)
-            url_components_list = location_header.split("/")
-            asset_uuid = url_components_list[-2]
-            asset_put["asset"][0]["uuid"] = asset_uuid
-
-            put_resp_obj = type(self).app.put(location_header, data=json.dumps(asset_put),
-                                              headers=RestClientApis.put_json_headers)
-
-            self.assertEqual(put_resp_obj.status_code, HTTPStatus.CREATED)
-
-            get_resp_obj = self.app.get(location_header)
-            get_resp_json = json.loads(get_resp_obj.data.decode("utf-8"))
-            self.assertEqual(get_resp_obj.status_code, HTTPStatus.OK)
-            success = compare_utils.default_full_compare_dict(get_resp_json,
-                                                              json.loads(MAGEN_SINGLE_ASSET_FINANCE_GET_RESP))
-            self.assertTrue(success)
-        except (OSError, IOError) as e:
-            print("Failed to open file: {}".format(e))
-            self.assertTrue(False)
-        except (KeyError, IndexError) as e:
-            print("Decoding error: {}".format(e))
-            self.assertTrue(False)
-        except Exception as e:
-            print("Verification Error: {}".format(e))
-            self.assertTrue(False)
-        finally:
-            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
-                os.remove(filename)
-
-    @unittest.expectedFailure
-    def test_SingleAssetPost_SingleAssetPut_Fail(self):
-
-        """
-        Creates a single magen_resource with POST and updates it with PUT
-        """
-        print("+++++++++Single Asset POST, Update with PUT  Test+++++++++")
-
-        location_header = None
-        server_urls_instance = ServerUrls().get_instance()
-        file_name = "test_up.txt"
-        src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
-        try:
-            magen_file = open(src_file_full_path, 'w+')
-            magen_file.write("this is a test")
-            magen_file.close()
-            post_json = json.loads(MAGEN_INGESTION_POST_WITH_EMPTY_DOWNLOAD_URL)
-            post_json["asset"][0]["download_url"] = "file://" + src_file_full_path
-            post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_asset_url,
-                                                data=json.dumps(post_json),
-                                                headers={'content-type': 'application/json'})
-            # "http://localhost:5020/magen/ingestion/v2/upload/"
-            self.assertEqual(post_resp_obj.status_code, HTTPStatus.CREATED)
-
-            headers = post_resp_obj.headers
-            for header in headers:
-                if header[0] == "location":
-                    location_header = header[1]
-                    break
-
-            self.assertIsNotNone(location_header)
-            asset_put = json.loads(MAGEN_SINGLE_ASSET_FINANCE_PUT)
-
-            put_resp_obj = type(self).app.put(location_header, data=json.dumps(asset_put),
-                                              headers=RestClientApis.put_json_headers)
-
-            self.assertEqual(put_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
-        except (OSError, IOError) as e:
-            print("Failed to open file: {}".format(e))
-            self.assertTrue(False)
-        except (KeyError, IndexError) as e:
-            print("Decoding error: {}".format(e))
-            self.assertTrue(False)
-        except Exception as e:
-            print("Verification Error: {}".format(e))
-            self.assertTrue(False)
-        finally:
-            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
-                os.remove(filename)
-
-    def test_SingleAssetPut_Fail_Replace(self):
-        """
-        Creates a single magen_resource with POST
-        """
-        print("+++++++++Single Asset POST Test+++++++++")
-        server_urls_instance = ServerUrls().get_instance()
-        # AssetCreationApi.process_asset
-        asset_put = json.loads(MAGEN_SINGLE_ASSET_FINANCE_PUT)
-        put_url = server_urls_instance.ingestion_server_single_asset_url.format(asset_put["asset"][0]["uuid"])
-        mock = Mock(return_value=(False, "Failed to replace"))
-        with patch('ingestion.ingestion_apis.asset_db_api.AssetDbApi.replace', new=mock):
-            put_resp_obj = type(self).app.put(put_url, data=MAGEN_SINGLE_ASSET_FINANCE_PUT,
-                                              headers=RestClientApis.put_json_headers)
-            self.assertEqual(put_resp_obj.status_code, HTTPStatus.INTERNAL_SERVER_ERROR)
+    # def test_SingleAssetPut_Fail_Replace(self):
+    #     """
+    #     Creates a single magen_resource with POST
+    #     """
+    #     print("+++++++++Single Asset POST Test+++++++++")
+    #     server_urls_instance = ServerUrls().get_instance()
+    #     # AssetCreationApi.process_asset
+    #     asset_put = json.loads(MAGEN_SINGLE_ASSET_FINANCE_PUT)
+    #     put_url = server_urls_instance.ingestion_server_single_asset_url.format(asset_put["asset"][0]["uuid"])
+    #     mock = Mock(return_value=(False, "Failed to replace"))
+    #     with patch('ingestion.ingestion_apis.asset_db_api.AssetDbApi.replace', new=mock):
+    #         put_resp_obj = type(self).app.put(put_url, data=MAGEN_SINGLE_ASSET_FINANCE_PUT,
+    #                                           headers=RestClientApis.put_json_headers)
+    #         self.assertEqual(put_resp_obj.status_code, HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def test_SingleAssetDelete_Fail_Db(self):
         """

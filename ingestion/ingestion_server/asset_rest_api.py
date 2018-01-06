@@ -4,12 +4,13 @@ import logging
 import os
 import shutil
 import re
+import tempfile
 from shutil import copy2
 from http import HTTPStatus
 
 import gridfs
 import magen_statistics_server.counters as counters
-from flask import request, flash, Blueprint
+from flask import request, flash, Blueprint, send_file
 from magen_datastore_apis.main_db import MainDb
 from magen_logger.logger_config import LogDefaults
 from magen_rest_apis.rest_client_apis import RestClientApis
@@ -279,49 +280,6 @@ def magen_create_asset():
             "success": False, "cause": message, "asset": None})
 
 
-# Update of Asset - not supported yet
-@ingestion_bp_v2.route('/assets/asset/<asset_uuid>/', methods=["PUT"])
-@ingestion_bp.route('/assets/asset/<asset_uuid>/', methods=["PUT"])
-def magen_update_asset(asset_uuid):
-    """
-    REST API used to update or create a single asset on database
-    :param asset_uuid: Asset UUID
-    :return: A dictionary with the proper HTTP error code plus other metadata
-    """
-    counters.increment(RestRequest.PUT, INGESTION)
-    success = False
-    asset_dict = request.json["asset"][0]
-    if "creation_timestamp" in asset_dict:
-        original_creation_timestamp = datetime_parse_iso8601_string_to_utc(asset_dict["creation_timestamp"])
-        asset_dict["creation_timestamp"] = original_creation_timestamp
-    if asset_dict["uuid"] != asset_uuid:
-        result = {
-            "success": success,
-            "cause": "UUID in URL different from payload",
-            "asset": asset_uuid
-
-        }
-        counters.increment(RestResponse.BAD_REQUEST, INGESTION)
-        return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Create Asset",
-                                      result)
-    success, msg = AssetDbApi.replace(asset_dict)
-    result = {
-        "success": success,
-        "asset": asset_uuid,
-        "cause": msg
-    }
-    if success:
-        counters.increment(RestResponse.CREATED, INGESTION)
-        http_response = RestServerApis.respond(HTTPStatus.CREATED, "Create Asset",
-                                               result)
-        http_response.headers['location'] = request.url + asset_uuid + '/'
-        return http_response
-    else:
-        counters.increment(RestResponse.INTERNAL_SERVER_ERROR, INGESTION)
-        return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Create Asset",
-                                      result)
-
-
 @ingestion_bp_v2.route('/assets/asset/<asset_uuid>/', methods=["DELETE"])
 @ingestion_bp.route('/assets/asset/<asset_uuid>/', methods=["DELETE"])
 def magen_delete_asset(asset_uuid):
@@ -376,19 +334,38 @@ def magen_get_asset(asset_uuid):
     :param asset_uuid: Asset UUID
     :return: HTTP Response with the appropriate payload
     """
-    counters.increment(RestRequest.GET, INGESTION)
-    success, asset_list, msg = AssetDbApi.get_asset(asset_uuid)
-    result = {
-        "success": success,
-        "asset": asset_list,
-        "cause": msg
-    }
-    if success and asset_list:
-        counters.increment(RestResponse.OK, INGESTION)
-        return RestServerApis.respond(HTTPStatus.OK, "Get Asset", result)
-    else:
-        counters.increment(RestResponse.NOT_FOUND, INGESTION)
-        return RestServerApis.respond(HTTPStatus.NOT_FOUND, "Get Asset", result)
+    success, documents, msg = AssetDbApi.get_asset(asset_uuid)
+    if not success or not documents:
+        result = {
+            "success": success,
+            "asset": asset_uuid,
+            "cause": msg
+        }
+        return RestServerApis.respond(HTTPStatus.NOT_FOUND, "Get Asset",
+                                      result)
+    try:
+        grid_fid = documents[0].get("grid_fid", None)
+        if grid_fid:
+            # If this asset is stored within MongoDB we need to remove it.
+            db_core = MainDb.get_core_db_instance()
+            fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+            # We create a secure temp file in order to send it to user. Later we can stream the contents
+            # but this is simpler for now
+            magen_temp_file = tempfile.TemporaryFile()
+            fs.download_to_stream_by_name(documents[0]["file_name"], magen_temp_file)
+            return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
+        else:
+            logger.error("GridFS ID not found in asset document: %s", asset_uuid)
+            msg = "Asset not found"
+            result = {
+                "success": success,
+                "asset": documents,
+                "cause": msg
+            }
+            return RestServerApis.respond(HTTPStatus.NOT_FOUND, "Get Asset", result)
+    except gridfs.errors.NoFile as e:
+        return RestServerApis.respond(HTTPStatus.NOT_FOUND, "Get Asset", {
+            "success": False, "cause": e.args[0], "asset": asset_uuid})
 
 
 # @ingestion_bp.route('/upload/', methods=["POST"])

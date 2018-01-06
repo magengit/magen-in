@@ -219,8 +219,9 @@ def file_upload():
                 # TODO bucket name, owner and group should be based on user login such as email
                 with open(html_container_path, "rb") as magen_file_upload:
                     fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
-                    iid = fs.upload_from_stream(os.path.split(html_container_path)[1], magen_file_upload,
-                                                metadata={"owner": "Alice", "group": "users", "file_name": file_name,
+                    iid = fs.upload_from_stream(file_name, magen_file_upload,
+                                                metadata={"owner": "Alice", "group": "users",
+                                                          "container_name": os.path.split(html_container_path)[1],
                                                           "asset_uuid": asset_dict["uuid"]})
                     assert iid is not 0
                     seed = {"uuid": asset_dict["uuid"]}
