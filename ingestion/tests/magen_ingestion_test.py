@@ -1080,7 +1080,7 @@ class TestRestApi(unittest.TestCase):
         """
         print("+++++++++ Encrypt_Asset_Decrypt_With_OpenSSL Test +++++++++")
 
-        file_name = "C:/Users/lokodali/.ssh/id_rsa.pub"
+        file_name = "test_up.pub"
         base_path = type(self).ingestion_globals.data_dir
         src_file_full_path = os.path.join(base_path, file_name)
         grid_file_full_path = src_file_full_path + ".grid"
