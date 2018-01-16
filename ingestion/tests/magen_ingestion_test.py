@@ -1073,6 +1073,54 @@ class TestRestApi(unittest.TestCase):
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
 
+    def test_GridFS_UploadPublicfileStream(self):
+        """
+        Creates a local file, encrypts with API then tries to decrypt with OpenSSL. Original file and decrypted
+        file are compared for equality.
+        """
+        print("+++++++++ Encrypt_Asset_Decrypt_With_OpenSSL Test +++++++++")
+
+        file_name = "C:/Users/lokodali/.ssh/id_rsa.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        src_file_full_path = os.path.join(base_path, file_name)
+        grid_file_full_path = src_file_full_path + ".grid"
+        fs = gridfs.GridFSBucket(type(self).db.core_database.get_magen_mdb(), bucket_name="test")
+        iid = 0
+        try:
+            # Create file
+            magen_file = open(src_file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # Upload file
+            print(src_file_full_path,"src_file_full_path")
+            magen_file_upload = open(src_file_full_path, 'rb')
+            iid = fs.upload_from_stream("unit_test_grid", magen_file_upload,
+                                        metadata={"owner" : "Alice", "group": "users"})
+            self.assertIsNot(iid, 0, "Failed to upload file to Grid")
+            magen_file_upload.close()
+            # Download file
+            magen_file_out = open(grid_file_full_path, 'wb')
+            fs.download_to_stream_by_name("unit_test_grid", magen_file_out)
+            magen_file_out.close()
+            files_equal = filecmp.cmp(src_file_full_path, grid_file_full_path)
+            self.assertTrue(files_equal)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            if iid:
+                fs.delete(iid)
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+
+
     def test_Encrypt_file_and_save_Exception(self):
         """
         POST to create single asset, fails with Exception
