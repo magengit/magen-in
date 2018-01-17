@@ -105,27 +105,17 @@ class ContainerApi(object):
             return False
 
     @staticmethod
-    def create_html_container_from_file(metadata_dict, html_container_file
-                                            ):
+    def create_html_container_from_file(metadata_dict, html_container_file):
         """
         Creates a HTML container file for the Asset. It will actually write the file to disk.
         :return: True or False
         :rtype: string
         :param metadata_dict: A dictionary that contains the asset metadata
-        :param metab64_str: Metadata base64 encoded and converted to string
-        :param enc_b64_file: File that contains the asset after encryption and encoding to base64
         :param html_container_file: Destination HTML container file
-        :param chunk_size: enc_b64_file will be read in chunk_size segments
-        :type enc_b64_file: string
-        :type metab64_str: string
         :type metadata_dict: dict
         """
         try:
             with open(html_container_file, "wb") as html_container:
-                # We need file size because when decrypting we can not read the attribute value to a variable
-                # if it is larger than available memory
-                # enc_b64_file_size = b64_file.seek(0, 2)
-                # b64_file.seek(0, 0)
                 html_container.write('<!DOCTYPE html>\n'.encode("utf-8"))
                 html_container.write('<html lang="en">\n'.encode("utf-8"))
                 html_container.write('<head>\n'.encode("utf-8"))
@@ -152,17 +142,9 @@ class ContainerApi(object):
                     '<p hidden="true" data-file-size="true">{}</p>\n'.format(metadata_dict["file_size"]).encode(
                         "utf-8"))
 
-                # html_container.write(
-                #     '<img hidden alt="Asset" id="asset" src="data:image/png;base64,{}" />\n'.format(enc_b64_file))
                 html_container.write(
                     '<img hidden="true" data-asset="true" alt="Asset" id="asset" '
                     'src="data:image/png;base64,'.encode("utf-8"))
-                # Attribute value needs to written in chunks so large files are supported.
-                # while True:
-                #     buf = b64_file.read(chunk_size)
-                #     if not buf:
-                #         break
-                #     html_container.write(buf)
 
                 html_container.write(
                     '" />\n'.encode("utf-8"))

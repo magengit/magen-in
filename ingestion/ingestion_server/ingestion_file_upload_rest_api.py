@@ -159,7 +159,6 @@ def file_upload():
         asset_dict["file_name"] = file_name
         dst_file_path = os.path.join(IngestionGlobals().data_dir, file_name)
         enc_file_path = dst_file_path + ".enc"
-        html_container_path = dst_file_path + ".html"
         #asset_dict["file_path"] = dst_file_path
 
         # Populate asset id
@@ -329,7 +328,6 @@ def file_upload_main_js_cors(file_path):
     :param file_path:  Maps URL to files in file_upload directory.
     :return: Static file from directory
     """
-    print(file_path,"file_path")
     return send_from_directory("file_upload/js/cors", file_path)
 
 
