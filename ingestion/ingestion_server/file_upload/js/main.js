@@ -72,4 +72,10 @@ $(function () {
         });
     }
 
+$('#select_user').on('change', function() {
+    alert(this.value);
 });
+
+});
+
+

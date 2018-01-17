@@ -168,15 +168,16 @@ def file_upload():
             # We need a dict that can be JSONified cleanly
             asset_dict_json = dict(asset_dict)
             asset_dict_json.pop('_id', None)
+
+            # asset_dict_json.pop('file_path', None)
+            server_urls_instance = ServerUrls().get_instance()
+            key_post_dict = {"asset": {"asset_id": asset_dict["uuid"]}, "format": "json", "ks_type": "local"}
+
+            json_post = json.dumps(key_post_dict)
+            post_return_obj = RestClientApis.http_post_and_check_success(server_urls_instance.key_server_asset_url,
+                                                                         json_post)
             ext = file_name.rsplit('.', 1)[1].lower()
             if ext != 'pub':
-                # asset_dict_json.pop('file_path', None)
-                server_urls_instance = ServerUrls().get_instance()
-                key_post_dict = {"asset": {"asset_id": asset_dict["uuid"]}, "format": "json", "ks_type": "local"}
-
-                json_post = json.dumps(key_post_dict)
-                post_return_obj = RestClientApis.http_post_and_check_success(server_urls_instance.key_server_asset_url,
-                                                                             json_post)
                 if post_return_obj.success:
                     key_info = post_return_obj.json_body
                     key_b64 = key_info["response"]["key"]
@@ -219,6 +220,8 @@ def file_upload():
                         raise Exception("Failed to create container: {}".format(dst_file_path))
                 else:
                     raise Exception("Key Server problem")
+            if not post_return_obj.success:
+                raise Exception("Key Server problem")
 
             # GridFS file storage
             db_core = MainDb.get_core_db_instance()
@@ -233,13 +236,14 @@ def file_upload():
             with open(html_container_path, "rb") as magen_file_upload:
                 fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
                 iid = fs.upload_from_stream(file_name, magen_file_upload,
-                                                metadata={"owner": "Alice", "group": "users",
-                                                          "container_name": os.path.split(html_container_path)[1],
-                                                          "asset_uuid": asset_dict["uuid"]})
+                                            metadata={"owner": "Alice", "group": "users",
+                                                      "container_name": os.path.split(html_container_path)[1],
+                                                      "asset_uuid": asset_dict["uuid"]})
                 assert iid is not 0
                 seed = {"uuid": asset_dict["uuid"]}
                 mongo_return = db_core.asset_strategy.update(seed, {'$set': {"grid_fid": iid}})
                 assert mongo_return.success is True
+
             file_upload_counter.inc()
             file_upload_response = build_file_upload_response(asset_dict)
             resp = json.dumps(file_upload_response)
@@ -320,6 +324,7 @@ def file_upload_main_js_cors(file_path):
     :param file_path:  Maps URL to files in file_upload directory.
     :return: Static file from directory
     """
+    print(file_path,"file_path")
     return send_from_directory("file_upload/js/cors", file_path)
 
 
@@ -341,3 +346,15 @@ def file_upload_main_cors(file_path):
     :return: Static file from directory
     """
     return send_from_directory("file_upload/cors", file_path)
+
+
+@ingestion_file_upload_bp.route('/file_upload/share/', methods=["POST"])
+def file_sharing():
+    """
+    URL handler needed for the jquery-file-upload integration.
+    :param file_path:  Maps URL to files in file_upload directory.
+    :return: Static file from directory
+    """
+    # TODO: Encrypt symmetric key with user's public key
+    # TODO: Sends encrypted file and symmetric key encrypted with users's public key to user
+    return "success"
