@@ -169,15 +169,16 @@ def file_upload():
             asset_dict_json = dict(asset_dict)
             asset_dict_json.pop('_id', None)
 
-            # asset_dict_json.pop('file_path', None)
-            server_urls_instance = ServerUrls().get_instance()
-            key_post_dict = {"asset": {"asset_id": asset_dict["uuid"]}, "format": "json", "ks_type": "local"}
-
-            json_post = json.dumps(key_post_dict)
-            post_return_obj = RestClientApis.http_post_and_check_success(server_urls_instance.key_server_asset_url,
-                                                                         json_post)
             ext = file_name.rsplit('.', 1)[1].lower()
             if ext != 'pub':
+                # asset_dict_json.pop('file_path', None)
+                server_urls_instance = ServerUrls().get_instance()
+                key_post_dict = {"asset": {"asset_id": asset_dict["uuid"]}, "format": "json", "ks_type": "local"}
+
+                json_post = json.dumps(key_post_dict)
+                post_return_obj = RestClientApis.http_post_and_check_success(server_urls_instance.key_server_asset_url,
+                                                                             json_post)
+
                 if post_return_obj.success:
                     key_info = post_return_obj.json_body
                     key_b64 = key_info["response"]["key"]
@@ -220,8 +221,6 @@ def file_upload():
                         raise Exception("Failed to create container: {}".format(dst_file_path))
                 else:
                     raise Exception("Key Server problem")
-            if not post_return_obj.success:
-                raise Exception("Key Server problem")
 
             # GridFS file storage
             db_core = MainDb.get_core_db_instance()
@@ -235,10 +234,16 @@ def file_upload():
 
             with open(html_container_path, "rb") as magen_file_upload:
                 fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
-                iid = fs.upload_from_stream(file_name, magen_file_upload,
-                                            metadata={"owner": "Alice", "group": "users",
-                                                      "container_name": os.path.split(html_container_path)[1],
-                                                      "asset_uuid": asset_dict["uuid"]})
+                if ext == 'pub':
+                    iid = fs.upload_from_stream(file_name, magen_file_upload,
+                                                metadata={"owner": "Alice", "group": "users", "type": "public key",
+                                                          "container_name": os.path.split(html_container_path)[1],
+                                                          "asset_uuid": asset_dict["uuid"]})
+                else:
+                    iid = fs.upload_from_stream(file_name, magen_file_upload,
+                                                metadata={"owner": "Alice", "group": "users",
+                                                          "container_name": os.path.split(html_container_path)[1],
+                                                          "asset_uuid": asset_dict["uuid"]})
                 assert iid is not 0
                 seed = {"uuid": asset_dict["uuid"]}
                 mongo_return = db_core.asset_strategy.update(seed, {'$set': {"grid_fid": iid}})
