@@ -228,7 +228,9 @@ def file_upload():
                 html_container_path = dst_file_path + ".html"
                 metadata_json, metadata_dict = ContainerApi.create_meta_v2(asset_dict,
                                                                            creator_domain="www.magen.io")
-                if not ContainerApi.create_html_container_from_file(metadata_dict, html_container_path):
+                metadata_b64 = ContainerApi.b64encode_meta_v2(metadata_json)
+                metadata_b64_str = metadata_b64.decode("utf-8")
+                if not ContainerApi.create_html_file_container_from_file(metadata_dict, metadata_b64_str, None, html_container_path):
                     raise Exception("Failed to create container: {}".format(dst_file_path))
 
             with open(html_container_path, "rb") as magen_file_upload:
