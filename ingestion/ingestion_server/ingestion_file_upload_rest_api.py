@@ -159,6 +159,7 @@ def file_upload():
         asset_dict["file_name"] = file_name
         dst_file_path = os.path.join(IngestionGlobals().data_dir, file_name)
         enc_file_path = dst_file_path + ".enc"
+        html_container_path = dst_file_path + ".html"
         #asset_dict["file_path"] = dst_file_path
 
         # Populate asset id
@@ -211,40 +212,32 @@ def file_upload():
                                                                                creator_domain="www.magen.io",
                                                                                iv=iv_decoded,
                                                                                enc_asset_hash=b64_file_digest.hexdigest())
-                    metadata_b64 = ContainerApi.b64encode_meta_v2(metadata_json)
-                    metadata_b64_str = metadata_b64.decode("utf-8")
-                    html_container_path = dst_file_path + ".html"
+                    metadata = {"owner": "Alice", "group": "users",
+                                "container_name": os.path.split(html_container_path)[1],
+                                "asset_uuid": asset_dict["uuid"]}
 
-                    if not ContainerApi.create_html_file_container_from_file(metadata_dict, metadata_b64_str,
-                                                                             base64_file_path, html_container_path):
-                        raise Exception("Failed to create container: {}".format(dst_file_path))
                 else:
                     raise Exception("Key Server problem")
+            else:
+                    metadata_json, metadata_dict = ContainerApi.create_meta_v2(asset_dict,
+                                                                               creator_domain="www.magen.io")
+                    base64_file_path = None
+                    metadata = {"owner": "Alice", "group": "users", "type": "public key",
+                                "container_name": os.path.split(html_container_path)[1],
+                                "asset_uuid": asset_dict["uuid"]}
+
+            metadata_b64 = ContainerApi.b64encode_meta_v2(metadata_json)
+            metadata_b64_str = metadata_b64.decode("utf-8")
+            if not ContainerApi.create_html_file_container_from_file(metadata_dict, metadata_b64_str,
+                                                                     base64_file_path, html_container_path):
+                raise Exception("Failed to create container: {}".format(dst_file_path))
 
             # GridFS file storage
             db_core = MainDb.get_core_db_instance()
             # TODO bucket name, owner and group should be based on user login such as email
-            if ext == 'pub':
-                html_container_path = dst_file_path + ".html"
-                metadata_json, metadata_dict = ContainerApi.create_meta_v2(asset_dict,
-                                                                           creator_domain="www.magen.io")
-                metadata_b64 = ContainerApi.b64encode_meta_v2(metadata_json)
-                metadata_b64_str = metadata_b64.decode("utf-8")
-                if not ContainerApi.create_html_file_container_from_file(metadata_dict, metadata_b64_str, None, html_container_path):
-                    raise Exception("Failed to create container: {}".format(dst_file_path))
-
             with open(html_container_path, "rb") as magen_file_upload:
                 fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
-                if ext == 'pub':
-                    iid = fs.upload_from_stream(file_name, magen_file_upload,
-                                                metadata={"owner": "Alice", "group": "users", "type": "public key",
-                                                          "container_name": os.path.split(html_container_path)[1],
-                                                          "asset_uuid": asset_dict["uuid"]})
-                else:
-                    iid = fs.upload_from_stream(file_name, magen_file_upload,
-                                                metadata={"owner": "Alice", "group": "users",
-                                                          "container_name": os.path.split(html_container_path)[1],
-                                                          "asset_uuid": asset_dict["uuid"]})
+                iid = fs.upload_from_stream(file_name, magen_file_upload, metadata=metadata)
                 assert iid is not 0
                 seed = {"uuid": asset_dict["uuid"]}
                 mongo_return = db_core.asset_strategy.update(seed, {'$set': {"grid_fid": iid}})
@@ -351,15 +344,3 @@ def file_upload_main_cors(file_path):
     :return: Static file from directory
     """
     return send_from_directory("file_upload/cors", file_path)
-
-
-@ingestion_file_upload_bp.route('/file_upload/share/', methods=["POST"])
-def file_sharing():
-    """
-    URL handler needed for the jquery-file-upload integration.
-    :param file_path:  Maps URL to files in file_upload directory.
-    :return: Static file from directory
-    """
-    # TODO: Encrypt symmetric key with user's public key
-    # TODO: Sends encrypted file and symmetric key encrypted with users's public key to user
-    return "success"
