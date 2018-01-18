@@ -1073,7 +1073,7 @@ class TestRestApi(unittest.TestCase):
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
 
-    def test_GridFS_UploadPublicfileStream(self):
+    def test_GridFS_UploadPublicFileStream(self):
         """
         Creates a local file, encrypts with API then tries to decrypt with OpenSSL. Original file and decrypted
         file are compared for equality.
@@ -1186,6 +1186,44 @@ class TestRestApi(unittest.TestCase):
         ret = EncryptionApi.create_meta("c9243e28-238d-41b6-9c5e-37f0b1be4dae")
         self.assertEqual(orig, ret)
 
+    def test_JQuery_UploadFile_with_Public_Key(self):
+        """
+        This test simulates the jquery-file-upload client. It uploads a file through POST form data.
+        It checks the response was 200OK.
+        """
+        print("+++++++++ test_JQuery_UploadFile_with_Public_Key Test +++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        delete_url = None
+        try:
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+            post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                headers={'content-type': 'multipart/form-data'})
+            self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
+            post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+            delete_url = post_resp_json_obj["files"][0]["url"]
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
     def test_JQuery_UploadFile_with_Mock_KS(self):
         """
         This test simulates the jquery-file-upload client. It uploads a file through POST form data.
@@ -1204,11 +1242,13 @@ class TestRestApi(unittest.TestCase):
             magen_file.close()
             files = {'files[]': (file_full_path, file_name, 'text/plain')}
             ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            print(ks_post_resp_json_obj,"ks_post_resp_json_obj")
             key = ks_post_resp_json_obj["response"]["key"]
             key_iv = ks_post_resp_json_obj["response"]["iv"]
             rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
                                          json_body=ks_post_resp_json_obj,
                                          response_object=None)
+            print(rest_return_obj.to_dict(),"rest_return_obj")
             mock = Mock(return_value=rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
                 jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
@@ -1216,6 +1256,7 @@ class TestRestApi(unittest.TestCase):
                                                     headers={'content-type': 'multipart/form-data'})
                 self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
                 post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                print(post_resp_json_obj,"post_resp_json_obj")
                 delete_url = post_resp_json_obj["files"][0]["url"]
 
         except (OSError, IOError) as e:
