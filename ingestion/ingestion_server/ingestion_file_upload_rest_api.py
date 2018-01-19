@@ -6,10 +6,11 @@ from http import HTTPStatus
 
 import gridfs
 import magen_statistics_server.counters as counters
-from flask import request, flash, Blueprint, send_from_directory
+from flask import request, flash, Blueprint, send_from_directory, render_template
 from magen_datastore_apis.main_db import MainDb
 from werkzeug.exceptions import BadRequest
-
+from Crypto.Cipher import AES
+from Crypto import Random
 from ingestion.ingestion_apis.asset_db_api import AssetDbApi
 from ingestion.ingestion_apis.container_api import ContainerApi
 from ingestion.ingestion_apis.encryption_api import EncryptionApi
@@ -137,6 +138,7 @@ def file_upload():
     asset_process_success = False
     asset_dict = dict()
     asset_dict["file_size"] = request.content_length
+
     try:
 
         if 'files[]' not in request.files:
@@ -178,7 +180,6 @@ def file_upload():
                 json_post = json.dumps(key_post_dict)
                 post_return_obj = RestClientApis.http_post_and_check_success(server_urls_instance.key_server_asset_url,
                                                                              json_post)
-
                 if post_return_obj.success:
                     key_info = post_return_obj.json_body
                     key_b64 = key_info["response"]["key"]
@@ -222,6 +223,8 @@ def file_upload():
                     metadata_json, metadata_dict = ContainerApi.create_meta_v2(asset_dict,
                                                                                creator_domain="www.magen.io")
                     base64_file_path = None
+                    with open(dst_file_path, 'wb') as dst_file:
+                        dst_file.write(file_obj.read())
                     metadata = {"owner": "Alice", "group": "users", "type": "public key",
                                 "container_name": os.path.split(html_container_path)[1],
                                 "asset_uuid": asset_dict["uuid"]}
@@ -344,3 +347,56 @@ def file_upload_main_cors(file_path):
     :return: Static file from directory
     """
     return send_from_directory("file_upload/cors", file_path)
+
+
+@ingestion_file_upload_bp.route('/file_share/', methods=["GET"])
+def file_share():
+    """
+    URL handler needed for the jquery-file-share integration.
+    :param file_path:  Maps URL to files in templates directory.
+    :return: Static file from directory along with data to display
+    """
+    # TODO: Display all the files of the logged in owner only
+    response = AssetDbApi.get_all()
+    return render_template('share.html', data=response)
+
+
+@ingestion_file_upload_bp.route('/file_share/', methods=["POST"])
+def file_sharing():
+    """
+    :return:
+    """
+    success, documents, msg = AssetDbApi.get_asset(request.form["file"])
+    asset_id = documents[0]['uuid']
+    file_id = documents[0]['grid_fid']
+    try:
+        server_urls_instance = ServerUrls().get_instance()
+        get_return_obj = RestClientApis.http_get_and_check_success(
+            server_urls_instance.key_server_asset_url+asset_id+"/")
+        if get_return_obj.success:
+            symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
+            db_core = MainDb.get_core_db_instance()
+            fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+            files_data = fs.find({'_id': file_id})
+            for files in files_data:
+                user_pubkey = fs.find({'metadata.owner': files.metadata['owner'], 'metadata.type': 'public key'})
+            if user_pubkey:
+                for name in user_pubkey:
+                    fname = name.filename
+                src_file_path = os.path.join(IngestionGlobals().data_dir, fname)
+                try:
+                    with open(src_file_path, 'rb') as f:
+                        data = f.read()
+                    iv = Random.new().read(AES.block_size)
+                    cipher = AES.new(data, AES.MODE_CBC, iv)
+                    cipher_text = cipher.encrypt(symmetric_key)
+                except Exception as e:
+                    return str(e)
+            else:
+                raise Exception('Public key does not exists')
+            return "success"
+    except Exception as e:
+        message = str(e)
+        return message
+
+    return "failure"

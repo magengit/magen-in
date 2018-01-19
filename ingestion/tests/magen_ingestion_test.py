@@ -1242,13 +1242,11 @@ class TestRestApi(unittest.TestCase):
             magen_file.close()
             files = {'files[]': (file_full_path, file_name, 'text/plain')}
             ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
-            print(ks_post_resp_json_obj,"ks_post_resp_json_obj")
             key = ks_post_resp_json_obj["response"]["key"]
             key_iv = ks_post_resp_json_obj["response"]["iv"]
             rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
                                          json_body=ks_post_resp_json_obj,
                                          response_object=None)
-            print(rest_return_obj.to_dict(),"rest_return_obj")
             mock = Mock(return_value=rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
                 jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
@@ -1256,7 +1254,6 @@ class TestRestApi(unittest.TestCase):
                                                     headers={'content-type': 'multipart/form-data'})
                 self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
                 post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
-                print(post_resp_json_obj,"post_resp_json_obj")
                 delete_url = post_resp_json_obj["files"][0]["url"]
 
         except (OSError, IOError) as e:

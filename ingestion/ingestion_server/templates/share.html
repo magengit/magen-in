@@ -1,0 +1,69 @@
+<!DOCTYPE HTML>
+
+<html lang="en">
+<head>
+<!-- Force latest IE rendering engine or ChromeFrame if installed -->
+<!--[if IE]>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<![endif]-->
+<meta charset="utf-8">
+<title>Magen File Sharing</title>
+<meta name="description" content="File Upload widget with multiple file selection, drag&amp;drop support, progress bars, validation and preview images, audio and video for jQuery. Supports cross-domain, chunked and resumable file uploads and client-side image resizing. Works with any server-side platform (PHP, Python, Ruby on Rails, Java, Node.js, Go etc.) that supports standard HTML form file uploads.">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Bootstrap styles -->
+<link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+<!-- Generic page styles -->
+<link rel="stylesheet" href="css/style.css">
+<!-- blueimp Gallery styles -->
+<link rel="stylesheet" href="//blueimp.github.io/Gallery/css/blueimp-gallery.min.css">
+<!-- CSS to style the file input field as button and adjust the Bootstrap progress bars -->
+<link rel="stylesheet" href="css/jquery.fileupload.css">
+<link rel="stylesheet" href="css/jquery.fileupload-ui.css">
+<!-- CSS adjustments for browsers with JavaScript disabled -->
+<noscript><link rel="stylesheet" href="css/jquery.fileupload-noscript.css"></noscript>
+<noscript><link rel="stylesheet" href="css/jquery.fileupload-ui-noscript.css"></noscript>
+</head>
+<body>
+<div class="container">
+    <h1>Magen File Sharing Demo</h1>
+    <br>
+    <form id="fileshare" action="/magen/ingestion/v2/file_share/" method="POST" enctype="multipart/form-data">
+        <!-- Redirect browsers with JavaScript disabled to the origin page -->
+        <noscript><input type="hidden" name="redirect" value="https://blueimp.github.io/jQuery-File-Upload/"></noscript>
+        <!-- The fileshare-buttonbar contains buttons to share/delete files  -->
+        <div class="row fileshare-buttonbar">
+            <div class="row">
+                <button id="share_file" class="btn btn-primary share">
+                    <i class="glyphicon glyphicon-share"></i>
+                    <span>Share</span>
+                 </button>
+                <button type="button" class="btn btn-danger delete">
+                    <i class="glyphicon glyphicon-trash"></i>
+                    <span>Delete</span>
+                </button>
+
+                <select style="width:33%;display: inline;" name="selected_user" class="form-control" id="select_user">
+                    <option value="">Select User</option>
+                    <option value="User1">User1</option>
+                    <option value="User2">User2</option>
+                    <option value="User3">User3</option>
+                </select>
+            </div>
+            <div class="row">
+                {% if (data)  %}
+                <ul>
+                    {% for value in data %}
+                    {% if value %}
+                    <li><input type="radio" name="file" value="{{value.uuid}}">
+                        <span>{{ value.file_name}}</span>
+                    </li>
+                    {%  endif %}
+                    {% endfor %}
+                </ul>
+                {%  endif %}
+            </div>
+        </div>
+    </form>
+</div>
+</body>
+</html>
