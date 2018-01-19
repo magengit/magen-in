@@ -42,10 +42,11 @@ class ContainerApi(object):
         :type metadata_dict: dict
         """
         try:
-            with open(html_container_file, "wb") as html_container:
+            with open(html_container_file, "wb") as html_container, open(enc_b64_file, "rb") as b64_file:
                 # We need file size because when decrypting we can not read the attribute value to a variable
                 # if it is larger than available memory
-
+                enc_b64_file_size = b64_file.seek(0, 2)
+                b64_file.seek(0, 0)
                 html_container.write('<!DOCTYPE html>\n'.encode("utf-8"))
                 html_container.write('<html lang="en">\n'.encode("utf-8"))
                 html_container.write('<head>\n'.encode("utf-8"))
@@ -72,39 +73,29 @@ class ContainerApi(object):
                 html_container.write(
                     '<img hidden="true" data-metadata="true" alt="Metadata" id="metadata" src="data:image/png;base64,'
                     '{}" />\n'.format(metab64_str).encode("utf-8"))
+                html_container.write(
+                    '<p hidden="true" data-hash-asset="true">{}</p>\n'.format(metadata_dict["enc_asset_hash"]).encode(
+                        "utf-8"))
+                html_container.write(
+                    '<p hidden="true" data-enc-b64-file-size="true">{}</p>\n'.format(enc_b64_file_size).encode("utf-8"))
+                html_container.write(
+                    '<p hidden="true" data-initialization-vector="true">{}</p>\n'.format(metadata_dict["iv"]).encode("utf-8"))
 
-                if enc_b64_file:
-                    with open(enc_b64_file, "rb") as b64_file:
-                        enc_b64_file_size = b64_file.seek(0, 2)
-                        b64_file.seek(0, 0)
-                        html_container.write(
-                            '<p hidden="true" data-hash-asset="true">{}</p>\n'.format(metadata_dict["enc_asset_hash"]).encode(
-                                "utf-8"))
-                        html_container.write(
-                            '<p hidden="true" data-enc-b64-file-size="true">{}</p>\n'.format(enc_b64_file_size).encode("utf-8"))
-                        html_container.write(
-                            '<p hidden="true" data-initialization-vector="true">{}</p>\n'.format(metadata_dict["iv"]).encode("utf-8"))
+                # html_container.write(
+                #     '<img hidden alt="Asset" id="asset" src="data:image/png;base64,{}" />\n'.format(enc_b64_file))
+                html_container.write(
+                    '<img hidden="true" data-asset="true" alt="Asset" id="asset" '
+                    'src="data:image/png;base64,'.encode("utf-8"))
+                # Attribute value needs to written in chunks so large files are supported.
+                while True:
+                    buf = b64_file.read(chunk_size)
+                    if not buf:
+                        break
+                    html_container.write(buf)
 
-                        # html_container.write(
-                        #     '<img hidden alt="Asset" id="asset" src="data:image/png;base64,{}" />\n'.format(enc_b64_file))
-                        html_container.write(
-                            '<img hidden="true" data-asset="true" alt="Asset" id="asset" '
-                            'src="data:image/png;base64,'.encode("utf-8"))
-                        # Attribute value needs to written in chunks so large files are supported.
-                        while True:
-                            buf = b64_file.read(chunk_size)
-                            if not buf:
-                                break
-                            html_container.write(buf)
+                html_container.write(
+                    '" />\n'.encode("utf-8"))
 
-                        html_container.write(
-                            '" />\n'.encode("utf-8"))
-                else:
-                    html_container.write(
-                        '<img hidden="true" data-asset="true" alt="Asset" id="asset" '
-                        'src="data:image/png;base64,'.encode("utf-8"))
-                    html_container.write(
-                        '" />\n'.encode("utf-8"))
                 html_container.write('</body>\n'.encode("utf-8"))
                 html_container.write('</html>\n'.encode("utf-8"))
                 return True
