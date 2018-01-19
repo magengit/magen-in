@@ -369,6 +369,7 @@ def file_sharing():
     success, documents, msg = AssetDbApi.get_asset(request.form["file"])
     asset_id = documents[0]['uuid']
     file_id = documents[0]['grid_fid']
+    user_pubkey = None
     try:
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
@@ -377,9 +378,8 @@ def file_sharing():
             symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
             db_core = MainDb.get_core_db_instance()
             fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
-            files_data = fs.find({'_id': file_id})
-            for files in files_data:
-                user_pubkey = fs.find({'metadata.owner': files.metadata['owner'], 'metadata.type': 'public key'})
+            files_data = gridfs.GridFS(db_core.get_magen_mdb()).get(file_id)
+            user_pubkey = fs.find({'metadata.owner': files_data.metadata['owner'], 'metadata.type': 'public key'})
             if user_pubkey:
                 for name in user_pubkey:
                     fname = name.filename

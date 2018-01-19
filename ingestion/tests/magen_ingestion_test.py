@@ -1092,7 +1092,6 @@ class TestRestApi(unittest.TestCase):
             magen_file.write("this is a test")
             magen_file.close()
             # Upload file
-            print(src_file_full_path,"src_file_full_path")
             magen_file_upload = open(src_file_full_path, 'rb')
             iid = fs.upload_from_stream("unit_test_grid", magen_file_upload,
                                         metadata={"owner" : "Alice", "group": "users"})
@@ -1197,6 +1196,8 @@ class TestRestApi(unittest.TestCase):
         file_name = "test_up.pub"
         base_path = type(self).ingestion_globals.data_dir
         file_full_path = os.path.join(base_path, file_name)
+        grid_file_full_path = file_full_path + ".grid"
+        fs = gridfs.GridFSBucket(type(self).db.core_database.get_magen_mdb())
         delete_url = None
         try:
             magen_file = open(file_full_path, 'w+')
@@ -1208,6 +1209,11 @@ class TestRestApi(unittest.TestCase):
                                                 headers={'content-type': 'multipart/form-data'})
             self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
             post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+            magen_file_out = open(grid_file_full_path,'wb')
+            fs.download_to_stream_by_name(file_name, magen_file_out)
+            magen_file_out.close()
+            files_equal = filecmp.cmp(file_full_path, grid_file_full_path )
+            self.assertTrue(files_equal)
             delete_url = post_resp_json_obj["files"][0]["url"]
 
         except (OSError, IOError) as e:
@@ -1471,3 +1477,9 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+
+    def test_file_share_index(self):
+        server_urls_instance = ServerUrls().get_instance()
+        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+        resp = self.app.get(jquery_file_share_url)
+        self.assertEqual(resp.status_code, HTTPStatus.OK)
