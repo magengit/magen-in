@@ -44,9 +44,9 @@
 
                 <select style="width:33%;display: inline;" name="selected_user" class="form-control" id="select_user">
                     <option value="">Select User</option>
-                    <option value="User1">User1</option>
-                    <option value="User2">User2</option>
-                    <option value="User3">User3</option>
+                    <option value="Bob">Bob</option>
+                    <option value="User2">User1</option>
+                    <option value="User3">User2</option>
                 </select>
             </div>
             <div class="row">
@@ -54,8 +54,8 @@
                 <ul>
                     {% for value in data %}
                     {% if value %}
-                    <li><input type="radio" name="file" value="{{value.uuid}}">
-                        <span>{{ value.file_name}}</span>
+                    <li><input type="radio" name="file" value="{{value.metadata.asset_uuid}}">
+                        <span>{{ value.filename}}</span>
                     </li>
                     {%  endif %}
                     {% endfor %}

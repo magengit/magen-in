@@ -9,8 +9,8 @@ import magen_statistics_server.counters as counters
 from flask import request, flash, Blueprint, send_from_directory, render_template
 from magen_datastore_apis.main_db import MainDb
 from werkzeug.exceptions import BadRequest
-from Crypto.Cipher import AES
-from Crypto import Random
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.PublicKey import RSA
 from ingestion.ingestion_apis.asset_db_api import AssetDbApi
 from ingestion.ingestion_apis.container_api import ContainerApi
 from ingestion.ingestion_apis.encryption_api import EncryptionApi
@@ -111,6 +111,62 @@ def build_file_upload_error_response(asset: dict, error_msg: str=""):
     file_dict = dict()
     file_dict["name"] = asset.get("file_name", "")
     file_dict["size"] = asset.get("file_size", "")
+    file_dict["error"] = error_msg
+    response["files"].append(file_dict)
+    return response
+
+
+def build_file_share_response(asset_id: str, cipher_text: str):
+    """
+    Builds a proper response to the jquery-file-share browser client
+
+    {"files": [
+      {
+        "asset_id": "5f66e619-ab8d-4491-8b49-740476e6b08c",
+        "cipher_text": "b'J\xb4>&k\xab\x0b\xb3\xa1\xfb.\x93\xfc'",
+      },
+      {
+        "asset_id": "22727033-67ee-4b5a-8095-4a565b3ebfd9",
+        "cipher_text": "b'J\xcdx\xf9\x94\x11|\x89|\xc0\xde\xbe#\x12SNN'",
+      }
+    ]}
+
+    :param asset_id: Asset uuid of the file to be shared
+    :param cipher_text: encrypted symmetric key
+    :return: A properly formatted response
+    """
+    response = dict()
+    response["files"] = list()
+    file_dict = dict()
+    file_dict["asset_id"] = asset_id
+    file_dict["cipher_text"] = cipher_text
+    response["files"].append(file_dict)
+    return response
+
+
+def build_file_share_error_response(asset_id: str, error_msg: str=""):
+    """
+    Builds a proper error response to the jquery-file-share browser client
+
+    {"files": [
+      {
+        "asset_id": "5f66e619-ab8d-4491-8b49-740476e6b08c",
+        "error": "Key server error"
+      },
+      {
+        "asset_id": "22727033-67ee-4b5a-8095-4a565b3ebfd9",
+        "error": "Bad Request"
+      }
+    ]}
+
+    :param error_msg:
+    :param asset_id: Asset uuid of the file to be shared
+    :return: A properly formatted response
+    """
+    response = dict()
+    response["files"] = list()
+    file_dict = dict()
+    file_dict["asset_id"] = asset_id
     file_dict["error"] = error_msg
     response["files"].append(file_dict)
     return response
@@ -231,7 +287,7 @@ def file_upload():
                 with open(dst_file_path, 'wb') as dst_file:
                     dst_file.write(file_obj.read())
                 path = dst_file_path
-                metadata = {"owner": "Alice", "group": "users", "type": "public key",
+                metadata = {"owner": "Bob", "group": "users", "type": "public key",
                             "Public_Key_file_name": os.path.split(dst_file_path)[1],
                             "asset_uuid": asset_dict["uuid"]}
 
@@ -357,20 +413,29 @@ def file_share():
     :return: Static file from directory along with data to display
     """
     # TODO: Display all the files of the logged in owner only
-    response = AssetDbApi.get_all()
+    owner = "Alice"    # get owner from login
+    db_core = MainDb.get_core_db_instance()
+    fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+    response = fs.find({"metadata.owner": owner})
     return render_template('share.html', data=response)
 
 
 @ingestion_file_upload_bp.route('/file_share/', methods=["POST"])
 def file_sharing():
     """
-    :return:
+    This function processes file sharing for the client
+    :return: It returns 'asset_uuid' of the file shared and 'cipher_text' of the symmetric key encrypted with receiver's
+             public key
     """
-    success, documents, msg = AssetDbApi.get_asset(request.form["file"])
-    asset_id = documents[0]['uuid']
-    file_id = documents[0]['grid_fid']
-    user_pubkey = None
+
+    # The uuid of the asset to be shared is received from template
+    asset_id = request.form["file"]
+    receiver = request.form["selected_user"]
     try:
+        if not asset_id or not receiver:
+            response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
+            return json.dumps(response), HTTPStatus.BAD_REQUEST
+
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
             server_urls_instance.key_server_asset_url+asset_id+"/")
@@ -378,25 +443,35 @@ def file_sharing():
             symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
             db_core = MainDb.get_core_db_instance()
             fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
-            files_data = gridfs.GridFS(db_core.get_magen_mdb()).get(file_id)
-            user_pubkey = fs.find({'metadata.owner': files_data.metadata['owner'], 'metadata.type': 'public key'})
-            if user_pubkey:
+
+            # finds the receivers public key file for symmetric key encryption
+            user_pubkey = fs.find({'metadata.owner': receiver, 'metadata.type': 'public key'})
+            if user_pubkey.count():
                 for name in user_pubkey:
                     fname = name.filename
                 src_file_path = os.path.join(IngestionGlobals().data_dir, fname)
-                try:
-                    with open(src_file_path, 'rb') as f:
-                        data = f.read()
-                    iv = Random.new().read(AES.block_size)
-                    cipher = AES.new(data, AES.MODE_CBC, iv)
-                    cipher_text = cipher.encrypt(symmetric_key)
-                except Exception as e:
-                    return str(e)
+
+                # RSA asymmetric encryption algorithm used
+                with open(src_file_path) as data:
+                    public_key = RSA.importKey(data.read())
+                    cipher = PKCS1_OAEP.new(public_key)
+                    cipher_text = cipher.encrypt(symmetric_key.encode("utf-8"))
+
+                # cipher_text stored as hex string in json response
+                file_share_response = build_file_share_response(asset_id, cipher_text.hex())
+                resp = json.dumps(file_share_response)
+                return resp, HTTPStatus.OK
             else:
                 raise Exception('Public key does not exists')
-            return "success"
+        else:
+            raise Exception("Key Server problem")
+
+    except (KeyError, IndexError, BadRequest) as e:
+        message = str(e)
+        response = build_file_share_error_response(asset_id, message)
+        return json.dumps(response), HTTPStatus.BAD_REQUEST
+
     except Exception as e:
         message = str(e)
-        return message
-
-    return "failure"
+        response = build_file_share_error_response(asset_id, message)
+        return json.dumps(response), HTTPStatus.INTERNAL_SERVER_ERROR
