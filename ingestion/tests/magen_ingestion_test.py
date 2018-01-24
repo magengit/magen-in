@@ -1490,7 +1490,6 @@ class TestRestApi(unittest.TestCase):
         revclearmsg = d_cipher.decrypt(msg)
         self.assertEqual(clearmsg, revclearmsg)
 
-    @unittest.expectedFailure
     def test_file_share_index(self):
         """
         Display the list of the files uploaded by the user to be shared with other users
@@ -1523,14 +1522,14 @@ class TestRestApi(unittest.TestCase):
                 post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
                 delete_url = post_resp_json_obj["files"][0]["url"]
 
-            # file share index
-            jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-            resp = self.app.get(jquery_file_share_url)
-            self.assertEqual(resp.status_code, HTTPStatus.OK)
-            test_file = fs.find({"filename": "test_share.txt"})
-            for i in test_file:
-                name = i.filename
-            self.assertEqual(file_name, name)
+                # file share index
+                jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                resp = self.app.get(jquery_file_share_url)
+                self.assertEqual(resp.status_code, HTTPStatus.OK)
+                test_file = fs.find({"filename": "test_share.txt"})
+                for i in test_file:
+                    name = i.filename
+                self.assertEqual(file_name, name)
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
