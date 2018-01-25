@@ -69,17 +69,18 @@ class ContainerApi(object):
                 html_container.write(
                     '<p hidden="true" data-domain="true">{} </p>\n'.format(metadata_dict["domain"]).encode("utf-8"))
                 html_container.write(
+                    '<p hidden="true" data-file-size="true">{}</p>\n'.format(metadata_dict["file_size"]).encode("utf-8"))
+                html_container.write(
+                    '<img hidden="true" data-metadata="true" alt="Metadata" id="metadata" src="data:image/png;base64,'
+                    '{}" />\n'.format(metab64_str).encode("utf-8"))
+                html_container.write(
                     '<p hidden="true" data-hash-asset="true">{}</p>\n'.format(metadata_dict["enc_asset_hash"]).encode(
                         "utf-8"))
                 html_container.write(
                     '<p hidden="true" data-enc-b64-file-size="true">{}</p>\n'.format(enc_b64_file_size).encode("utf-8"))
                 html_container.write(
                     '<p hidden="true" data-initialization-vector="true">{}</p>\n'.format(metadata_dict["iv"]).encode("utf-8"))
-                html_container.write(
-                    '<p hidden="true" data-file-size="true">{}</p>\n'.format(metadata_dict["file_size"]).encode("utf-8"))
-                html_container.write(
-                    '<img hidden="true" data-metadata="true" alt="Metadata" id="metadata" src="data:image/png;base64,'
-                    '{}" />\n'.format(metab64_str).encode("utf-8"))
+
                 # html_container.write(
                 #     '<img hidden alt="Asset" id="asset" src="data:image/png;base64,{}" />\n'.format(enc_b64_file))
                 html_container.write(
@@ -94,6 +95,7 @@ class ContainerApi(object):
 
                 html_container.write(
                     '" />\n'.encode("utf-8"))
+
                 html_container.write('</body>\n'.encode("utf-8"))
                 html_container.write('</html>\n'.encode("utf-8"))
                 return True

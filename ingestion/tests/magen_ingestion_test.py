@@ -19,7 +19,8 @@ import binascii
 
 import gridfs
 from Crypto import Random
-from Crypto.Cipher import AES
+from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.PublicKey import RSA
 from magen_rest_apis.server_urls import ServerUrls
 from magen_utils_apis import compare_utils
 from magen_utils_apis.datetime_api import SimpleUtc
@@ -73,6 +74,24 @@ class TestRestApi(unittest.TestCase):
       "title": "create new key"
     }
     """
+    KEY_SERVER_GET_KEY_SERVER_RESP = """
+        {
+          "response": {
+            "key": {
+              "algorithm": "AES256",
+              "asset_id": "99c7b005-f027-4d6f-bea3-c61dec6e50ec",
+              "iv": "GgYAC6hz48VLG09R",
+              "key": "YY5EvJXwffieyai9eyen2Wdy7iCoimk8",
+              "key_id": "fd47b725e6d93017e7bfb04bed6643db5c063729d7844bd800bacc6dc4c705ba",
+              "key_server": "local",
+              "state": "active",
+              "ttl": 86400
+            }  
+          },
+          "status": 200,
+          "title": "key details"
+        }
+        """
 
     @classmethod
     def setUpClass(cls):
@@ -1073,6 +1092,55 @@ class TestRestApi(unittest.TestCase):
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
 
+    def test_GridFS_UploadPublicFileStream(self):
+        """
+        Creates a local file and upload the file to GridFS file storage. Original file and downloaded
+        file from GridFS are compared for equality.
+        """
+        print("+++++++++ Public_Key_File_Storage Test +++++++++")
+
+        file_name = "test_up.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        src_file_full_path = os.path.join(base_path, file_name)
+        grid_file_full_path = src_file_full_path + ".grid"
+        fs = gridfs.GridFSBucket(type(self).db.core_database.get_magen_mdb(), bucket_name="test")
+        iid = 0
+        try:
+            # Create file
+            magen_file = open(src_file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # Upload file
+            magen_file_upload = open(src_file_full_path, 'rb')
+            iid = fs.upload_from_stream("unit_test_grid", magen_file_upload,
+                                        metadata={"owner": "Alice", "group": "users", "type": "public key"})
+            self.assertIsNot(iid, 0, "Failed to upload file to Grid")
+            magen_file_upload.close()
+            # Download file
+            for grid_out in fs.find({"metadata.owner": "Alice", "metadata.type": "public key"}):
+                data = grid_out.filename
+            magen_file_out = open(grid_file_full_path, 'wb')
+            fs.download_to_stream_by_name(data, magen_file_out)
+            magen_file_out.close()
+            files_equal = filecmp.cmp(src_file_full_path, grid_file_full_path)
+            self.assertTrue(files_equal)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            if iid:
+                fs.delete(iid)
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+
+
     def test_Encrypt_file_and_save_Exception(self):
         """
         POST to create single asset, fails with Exception
@@ -1137,6 +1205,51 @@ class TestRestApi(unittest.TestCase):
             b'c9243e28-238d-41b6-9c5e-37f0b1be4dae,Cisco0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000')
         ret = EncryptionApi.create_meta("c9243e28-238d-41b6-9c5e-37f0b1be4dae")
         self.assertEqual(orig, ret)
+
+    def test_JQuery_UploadFile_with_Public_Key(self):
+        """
+        This test simulates the jquery-file-upload client. It uploads a file through POST form data.
+        It checks the response was 200OK.
+        """
+        print("+++++++++ test_JQuery_UploadFile_with_Public_Key Test +++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        grid_file_full_path = file_full_path + ".grid"
+        fs = gridfs.GridFSBucket(type(self).db.core_database.get_magen_mdb())
+        delete_url = None
+        try:
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+            post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                headers={'content-type': 'multipart/form-data'})
+            self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
+            post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+            magen_file_out = open(grid_file_full_path, 'wb')
+            fs.download_to_stream_by_name(file_name, magen_file_out)
+            magen_file_out.close()
+            files_equal = filecmp.cmp(file_full_path, grid_file_full_path )
+            self.assertTrue(files_equal)
+            delete_url = post_resp_json_obj["files"][0]["url"]
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
 
     def test_JQuery_UploadFile_with_Mock_KS(self):
         """
@@ -1385,3 +1498,274 @@ class TestRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+
+    def test_RSA_algorithm(self):
+        key = RSA.generate(2048)
+        clearmsg = b'Attack at dawn!!'
+        cipher = PKCS1_OAEP.new(key.publickey())
+        msg = cipher.encrypt(clearmsg)
+        d_cipher = PKCS1_OAEP.new(key)
+        revclearmsg = d_cipher.decrypt(msg)
+        self.assertEqual(clearmsg, revclearmsg)
+
+    def test_file_share_index(self):
+        """
+        Display the list of the files uploaded by the user to be shared with other users
+        """
+        print("++++++++++ test_file_share_index +++++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        fs = gridfs.GridFSBucket(type(self).db.core_database.get_magen_mdb())
+        delete_url = None
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_url = post_resp_json_obj["files"][0]["url"]
+
+                # file share index
+                jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                resp = self.app.get(jquery_file_share_url)
+                self.assertEqual(resp.status_code, HTTPStatus.OK)
+                test_file = fs.find({"filename": "test_share.txt"})
+                for i in test_file:
+                    name = i.filename
+                self.assertEqual(file_name, name)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_post_file_share(self):
+        """
+        This test stimulates the file-sharing of a client with another user. It gets the user and the file to send through
+        POST form data.
+        It checks if the symmetric key is encrypted correctly
+        """
+        print("+++++++++ test_post_file_share ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        public_key_file_name = "test_share.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        delete_url = None
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            share_asset_id = ks_post_resp_json_obj["response"]["asset_id"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_url = post_resp_json_obj["files"][0]["url"]
+
+                # Generate and upload a public key file
+                key = RSA.generate(2048)
+                public_file_path = os.path.join(base_path, public_key_file_name)
+                file = open(public_file_path, 'wb')
+                file.write(key.publickey().exportKey())
+                file.close()
+                public_files = {'files[]': (public_file_path, public_key_file_name, 'bytes')}
+                public_post_resp_obj = type(self).app.post(jquery_file_upload_url, data=public_files,
+                                                           headers={'content-type': 'multipart/form-data'})
+                public_post_resp_json_obj = json.loads(public_post_resp_obj.data.decode("utf-8"))
+                public_delete_url = public_post_resp_json_obj["files"][0]["url"]
+
+            ks_get_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_GET_KEY_SERVER_RESP)
+            # getting symmetric key from key server to compare
+            ks_key = ks_get_resp_json_obj["response"]["key"]["key"]
+            get_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=ks_get_resp_json_obj,
+                                             response_object=None)
+            get_mock = Mock(return_value=get_rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
+                jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url,data={'file': share_asset_id,
+                                                                                      'selected_user': 'Bob'},
+                                                          headers={'content-type': 'multipart/form-data'})
+
+                file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
+
+                self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.OK)
+                self.assertEqual(file_share_resp_json_obj["files"][0]["asset_id"], share_asset_id)
+
+                # decrypt the cipher to compare with symmetic key from key_server
+                cipher = PKCS1_OAEP.new(key)
+                message = cipher.decrypt(bytes.fromhex(file_share_resp_json_obj["files"][0]["cipher_text"]))
+                self.assertEqual(message, ks_key.encode('utf-8'))
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + public_key_file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(public_delete_url)
+            type(self).app.delete(delete_url)
+
+    def test_post_file_share_BADREQUEST(self):
+        """
+        This test stimulates the file-sharing of a client with another user. It gets the user and the file to send
+        through POST form data.
+        It passes an empty receiver name so the test fails on purpose.
+        """
+        print("+++++++++ test_post_file_share_BADREQUEST ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        public_key_file_name = "test_share.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        delete_url = None
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            share_asset_id = ks_post_resp_json_obj["response"]["asset_id"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_url = post_resp_json_obj["files"][0]["url"]
+
+                # Generate and upload a public key file
+                key = RSA.generate(2048)
+                public_file_path = os.path.join(base_path, public_key_file_name)
+
+                file = open(public_file_path, 'wb')
+                file.write(key.publickey().exportKey())
+                file.close()
+                public_files = {'files[]': (public_file_path, public_key_file_name, 'bytes')}
+                public_post_resp_obj = type(self).app.post(jquery_file_upload_url, data=public_files,
+                                                           headers={'content-type': 'multipart/form-data'})
+                public_post_resp_json_obj = json.loads(public_post_resp_obj.data.decode("utf-8"))
+                public_delete_url = public_post_resp_json_obj["files"][0]["url"]
+
+            ks_get_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_GET_KEY_SERVER_RESP)
+            get_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=ks_get_resp_json_obj,
+                                             response_object=None)
+            get_mock = Mock(return_value=get_rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
+                jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                form_data = {'file': share_asset_id, 'selected_user': ''}  # empty receiver
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data=form_data,
+                                                          headers={'content-type': 'multipart/form-data'})
+
+                self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + public_key_file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(public_delete_url)
+            type(self).app.delete(delete_url)
+
+    def test_post_file_share_No_Public_Key_file(self):
+        """
+        This test stimulates the file-sharing of a client with another user. It gets the user and the file to send
+        through POST form data.
+        Public Key file is not uploaded so the test fails on purpose.
+        """
+        print("+++++++++ test_post_file_share_No_Public_Key_file ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        delete_url = None
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            share_asset_id = ks_post_resp_json_obj["response"]["asset_id"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_url = post_resp_json_obj["files"][0]["url"]
+
+            ks_get_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_GET_KEY_SERVER_RESP)
+            get_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=ks_get_resp_json_obj,
+                                             response_object=None)
+            get_mock = Mock(return_value=get_rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
+                jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url,data={'file': share_asset_id,
+                                                                                      'selected_user': 'Bob'},
+                                                          headers={'content-type': 'multipart/form-data'})
+
+                self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
