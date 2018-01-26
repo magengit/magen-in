@@ -346,13 +346,14 @@ def magen_get_asset(asset_uuid):
     try:
         grid_fid = documents[0].get("grid_fid", None)
         if grid_fid:
-            # If this asset is stored within MongoDB we need to remove it.
+            # If this asset is stored within MongoDB we need to retrieve it.
             db_core = MainDb.get_core_db_instance()
             fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
             # We create a secure temp file in order to send it to user. Later we can stream the contents
             # but this is simpler for now
             magen_temp_file = tempfile.TemporaryFile()
             fs.download_to_stream_by_name(documents[0]["file_name"], magen_temp_file)
+            magen_temp_file.seek(0,0)
             return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
         else:
             logger.error("GridFS ID not found in asset document: %s", asset_uuid)

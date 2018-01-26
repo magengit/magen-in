@@ -1140,7 +1140,6 @@ class TestRestApi(unittest.TestCase):
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
 
-
     def test_Encrypt_file_and_save_Exception(self):
         """
         POST to create single asset, fails with Exception
@@ -1508,11 +1507,12 @@ class TestRestApi(unittest.TestCase):
         revclearmsg = d_cipher.decrypt(msg)
         self.assertEqual(clearmsg, revclearmsg)
 
-    def test_file_share_index(self):
+    def test_JQuery_UploadFile_with_Mock_KS_Retrieve_with_GET(self):
         """
-        Display the list of the files uploaded by the user to be shared with other users
+        Uploads a file, retrieves the file from the url found in the POST Response, decrypt and compare with
+        original file
         """
-        print("++++++++++ test_file_share_index +++++++++++")
+        print("++++++++++ test_JQuery_UploadFile_with_Mock_KS_Retrieve_with_GET +++++++++++")
 
         server_urls_instance = ServerUrls().get_instance()
         file_name = "test_share.txt"
@@ -1520,6 +1520,7 @@ class TestRestApi(unittest.TestCase):
         file_full_path = os.path.join(base_path, file_name)
         fs = gridfs.GridFSBucket(type(self).db.core_database.get_magen_mdb())
         delete_url = None
+        get_url = None
         try:
             # upload a file
             magen_file = open(file_full_path, 'w+')
@@ -1527,6 +1528,7 @@ class TestRestApi(unittest.TestCase):
             magen_file.close()
             files = {'files[]': (file_full_path, file_name, 'text/plain')}
             ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            key = ks_post_resp_json_obj["response"]["key"]
             rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
                                          json_body=ks_post_resp_json_obj,
                                          response_object=None)
@@ -1536,16 +1538,22 @@ class TestRestApi(unittest.TestCase):
                 post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
                                                     headers={'content-type': 'multipart/form-data'})
                 post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
-                delete_url = post_resp_json_obj["files"][0]["url"]
+                delete_url = post_resp_json_obj["files"][0]["deleteUrl"]
+                get_url = post_resp_json_obj["files"][0]["url"]
+                get_resp_obj = type(self).app.get(get_url)
+                container_file_path = file_full_path + ".html"
+                with open(container_file_path, "wb+") as container_f:
+                    container_f.write(get_resp_obj.data)
+                metadata_dict, enc_b64_file_size, message = ContainerApi.extract_meta_from_container(
+                    container_file_path)
 
-                # file share index
-                jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                resp = self.app.get(jquery_file_share_url)
-                self.assertEqual(resp.status_code, HTTPStatus.OK)
-                test_file = fs.find({"filename": "test_share.txt"})
-                for i in test_file:
-                    name = i.filename
-                self.assertEqual(file_name, name)
+                enc_out_file_path = ContainerApi.create_encrypted_file_from_container(container_file_path,
+                                                                                      enc_b64_file_size)
+
+                out_file_path = EncryptionApi.decrypt_file_v2(key, enc_out_file_path, metadata_dict)
+                self.assertIsNotNone(out_file_path)
+                with open(out_file_path, "rb") as f:
+                    self.assertEqual(f.read(), "this is a test".encode("utf-8"))
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
