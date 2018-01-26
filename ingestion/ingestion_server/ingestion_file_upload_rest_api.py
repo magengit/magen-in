@@ -5,8 +5,8 @@ import logging
 from http import HTTPStatus
 
 import gridfs
-import magen_statistics_server.counters as counters
-from flask import request, flash, Blueprint, send_from_directory, render_template
+from flask import request, Blueprint, send_from_directory, render_template
+from flask_login import login_required
 from magen_datastore_apis.main_db import MainDb
 from werkzeug.exceptions import BadRequest
 from Crypto.Cipher import PKCS1_OAEP
@@ -326,6 +326,7 @@ def file_upload():
 
 
 @ingestion_file_upload_bp.route('/file_upload/', methods=["GET"])
+@login_required
 def file_upload_index():
     """
     URL handler needed for the jquery-file-upload integration.
@@ -336,6 +337,7 @@ def file_upload_index():
 
 
 @ingestion_file_upload_bp.route('/file_upload/<file_path>', methods=["GET"])
+@login_required
 def file_upload_main(file_path):
     """
     URL handler needed for the jquery-file-upload integration.
@@ -346,6 +348,7 @@ def file_upload_main(file_path):
 
 
 @ingestion_file_upload_bp.route('/file_upload/css/<file_path>', methods=["GET"])
+@login_required
 def file_upload_main_css(file_path):
     """
     URL handler needed for the jquery-file-upload integration.
@@ -356,6 +359,7 @@ def file_upload_main_css(file_path):
 
 
 @ingestion_file_upload_bp.route('/file_upload/js/<file_path>', methods=["GET"])
+@login_required
 def file_upload_main_js(file_path):
     """
     URL handler needed for the jquery-file-upload integration.
@@ -366,6 +370,7 @@ def file_upload_main_js(file_path):
 
 
 @ingestion_file_upload_bp.route('/file_upload/js/vendor/<file_path>', methods=["GET"])
+@login_required
 def file_upload_main_js_vendor(file_path):
     """
     URL handler needed for the jquery-file-upload integration.
@@ -376,6 +381,7 @@ def file_upload_main_js_vendor(file_path):
 
 
 @ingestion_file_upload_bp.route('/file_upload/js/cors/<file_path>', methods=["GET"])
+@login_required
 def file_upload_main_js_cors(file_path):
     """
     URL handler needed for the jquery-file-upload integration.
@@ -386,6 +392,7 @@ def file_upload_main_js_cors(file_path):
 
 
 @ingestion_file_upload_bp.route('/file_upload/img/<file_path>', methods=["GET"])
+@login_required
 def file_upload_main_img(file_path):
     """
     URL handler needed for the jquery-file-upload integration.
@@ -396,6 +403,7 @@ def file_upload_main_img(file_path):
 
 
 @ingestion_file_upload_bp.route('/file_upload/cors/<file_path>', methods=["GET"])
+@login_required
 def file_upload_main_cors(file_path):
     """
     URL handler needed for the jquery-file-upload integration.
@@ -438,7 +446,7 @@ def file_sharing():
 
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
-            server_urls_instance.key_server_asset_url+asset_id+"/")
+            server_urls_instance.key_server_asset_url + asset_id +"/")
         if get_return_obj.success:
             symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
             db_core = MainDb.get_core_db_instance()

@@ -13,6 +13,7 @@ import errno
 from magen_rest_apis.magen_app import MagenApp
 # If this is being run from workspace (as main module),
 # import dev/magen_env.py to add workspace package directories.
+from ingestion.ingestion_apis.gridfs_api import GridFsApi
 from ingestion.ingestion_server.ingestion_file_upload_rest_api import ingestion_file_upload_bp
 
 src_ver = MagenApp.app_source_version(__name__)
@@ -136,6 +137,7 @@ def main(args):
     if args.clean_init:
         success, _ = AssetDbApi.delete_all()
         assert success is True
+        GridFsApi.delete_all()
 
     if args.key_server_ip_port is not None:
         server_urls_instance.set_key_server_url_host_port(args.key_server_ip_port)
@@ -151,6 +153,9 @@ def main(args):
     print("\n\n\n\n ====== STARTING MAGEN INGESTION SERVER  ====== \n")
 
     magen = MagenIngestionApp().app
+    # Since Ingestion blueprint is used by magen-io that uses login_required, we need
+    # to disable globablly here when running stand-alone
+    magen.config["LOGIN_DISABLED"] = False
     magen.register_blueprint(sourced_counters)
     magen.register_blueprint(ingestion_bp, url_prefix='/magen/ingestion/v1')
     magen.register_blueprint(ingestion_bp_v2, url_prefix='/magen/ingestion/v2')
@@ -164,6 +169,7 @@ def main(args):
     else:
         start_http_server(8000)
         magen.run(host='0.0.0.0', port=INGESTION_SERVER_PORT, debug=False, threaded=True)
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])

@@ -25,9 +25,12 @@ class AssetDbApi(object):
         anything. Just remove all documents in a single big operation.
         :return: (True, Message) or (False, Message)
         """
+
         db = MainDb.get_core_db_instance()
-        db_return = db.asset_strategy.delete_all()
-        if db_return.success:
+        magen_db = db.get_magen_mdb()
+        ret = magen_db.drop_collection("assets")
+        # Code 26 means the collection does not exist
+        if ret["ok"] or ret["code"] == 26:
             return True, "All assets deleted"
         else:
             return False, "Failed to delete all assets"
