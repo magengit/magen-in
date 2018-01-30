@@ -8,6 +8,7 @@ import argparse
 import sys
 import os
 from pathlib import Path
+from flask_login import LoginManager
 
 import errno
 from magen_rest_apis.magen_app import MagenApp
@@ -154,8 +155,11 @@ def main(args):
 
     magen = MagenIngestionApp().app
     # Since Ingestion blueprint is used by magen-io that uses login_required, we need
-    # to disable globablly here when running stand-alone
-    magen.config["LOGIN_DISABLED"] = False
+    # to disable globally here when running stand-alone
+    magen.config["LOGIN_DISABLED"] = True
+    login_manager = LoginManager()
+    login_manager.init_app(magen)
+
     magen.register_blueprint(sourced_counters)
     magen.register_blueprint(ingestion_bp, url_prefix='/magen/ingestion/v1')
     magen.register_blueprint(ingestion_bp_v2, url_prefix='/magen/ingestion/v2')

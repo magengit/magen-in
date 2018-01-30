@@ -27,6 +27,13 @@
 <div class="container">
     <h1>Magen File Sharing Demo</h1>
     <br>
+    <div align="right">
+        <form>
+            <input type="submit" formaction="/" value="Home">
+            <input type="submit" formaction="/logout/" value="Logout">
+        </form>
+    </div>
+    <br>
     <form id="fileshare" action="/magen/ingestion/v2/file_share/" method="POST" enctype="multipart/form-data">
         <!-- Redirect browsers with JavaScript disabled to the origin page -->
         <noscript><input type="hidden" name="redirect" value="https://blueimp.github.io/jQuery-File-Upload/"></noscript>

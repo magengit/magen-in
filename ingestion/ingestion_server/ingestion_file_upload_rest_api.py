@@ -414,6 +414,7 @@ def file_upload_main_cors(file_path):
 
 
 @ingestion_file_upload_bp.route('/file_share/', methods=["GET"])
+@login_required
 def file_share():
     """
     URL handler needed for the jquery-file-share integration.

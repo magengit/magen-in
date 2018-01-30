@@ -22,6 +22,7 @@ setup(
         'flake8>=3.3.0',
         'Flask>=0.12.2',
         'Flask-Cors>=3.0.3',
+        'Flask-Login>=0.2',
         'lxml>=4.1.0',
         'pycrypto>=2.6.1',
         'pymongo>=3.4.0',
