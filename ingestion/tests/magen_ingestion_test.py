@@ -1933,7 +1933,7 @@ class TestRestApi(unittest.TestCase):
             type(self).app.delete(public_delete_url)
             type(self).app.delete(delete_url)
 
-    def test_post_file_share_Mutiple_receivers(self):
+    def test_post_file_share_Multiple_receivers(self):
         """
         This test stimulates the file-sharing of a client with another user. It gets the user and the file to send through
         POST form data.
@@ -2040,13 +2040,13 @@ class TestRestApi(unittest.TestCase):
             type(self).app.delete(public_delete_url2)
             type(self).app.delete(delete_url)
 
-    def test_post_file_share_Fail_No_PublicKey_Mutiple_receivers(self):
+    def test_post_file_share_Fail_No_PublicKey_Multiple_receivers(self):
         """
         This test stimulates the file-sharing of a client with another user. It gets the user and the file to send through
         POST form data.
         Public Key file is not uploaded for one receiver so the test fails on purpose
         """
-        print("+++++++++ test_post_file_share ++++++++++++")
+        print("+++++++++ test_post_file_share_Fail_No_PublicKey_Multiple_receivers ++++++++++++")
         server_urls_instance = ServerUrls().get_instance()
         file_name = "test_share.txt"
         public_key_file_name = "Bob.pub"
