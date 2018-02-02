@@ -222,6 +222,7 @@ def file_upload():
         # Populate asset id
         success, message, count = AssetCreationApi.process_asset(asset_dict)
         if success and count:
+            asset_process_success = True
             # We need a dict that can be JSONified cleanly
             asset_dict_json = dict(asset_dict)
             asset_dict_json.pop('_id', None)
