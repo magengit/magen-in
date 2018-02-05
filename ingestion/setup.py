@@ -48,7 +48,7 @@ setup(
     },
     test_suite='tests',
     url='',
-    license='Apache',
+    license='Apache Software License',
     author='Reinaldo Penno',
     author_email='rapenno@gmail.com',
     description='Ingestion MicroService Package',
