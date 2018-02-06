@@ -4,7 +4,6 @@ import logging
 
 from http import HTTPStatus
 
-import magen_statistics_server.counters as counters
 from flask import request, flash, Blueprint
 from werkzeug.exceptions import BadRequest
 
@@ -14,7 +13,6 @@ from ingestion.ingestion_apis.encryption_api import EncryptionApi
 from magen_rest_apis.rest_client_apis import RestClientApis
 from magen_rest_apis.rest_server_apis import RestServerApis
 from magen_rest_apis.server_urls import ServerUrls
-from magen_statistics_api.metric_flavors import RestResponse, RestRequest
 from werkzeug.utils import secure_filename
 
 from ingestion.ingestion_apis.asset_creation_api import AssetCreationApi
@@ -54,7 +52,6 @@ def upload_file():
 
     :return: HTTP with proper error code
     """
-    counters.increment(RestRequest.POST, INGESTION)
     asset_process_success = False
     asset_dict = None
     try:
@@ -135,7 +132,6 @@ def upload_file():
                                                                          base64_file_path, html_container_path):
                     raise Exception("Failed to create container: {}".format(dst_file_path))
 
-                counters.increment(RestResponse.CREATED, INGESTION)
                 with open(html_container_path, "r") as html_f:
                     return RestServerApis.respond(HTTPStatus.OK, "Upload File",
                                                   {"success": True, "cause": HTTPStatus.OK.phrase,
@@ -148,7 +144,6 @@ def upload_file():
     except (KeyError, IndexError, BadRequest) as e:
         if asset_process_success:
             AssetDbApi.delete_one(asset_dict['uuid'])
-        counters.increment(RestResponse.BAD_REQUEST, INGESTION)
         message = str(e)
         return RestServerApis.respond(HTTPStatus.BAD_REQUEST, "Upload File", {
             "success": False, "cause": message, "asset": None, "container_version": CONTAINER_VERSION,
@@ -156,7 +151,6 @@ def upload_file():
     except Exception as e:
         if asset_process_success:
             AssetDbApi.delete_one(asset_dict['uuid'])
-        counters.increment(RestResponse.INTERNAL_SERVER_ERROR, INGESTION)
         message = str(e)
         return RestServerApis.respond(HTTPStatus.INTERNAL_SERVER_ERROR, "Upload File", {
             "success": False, "cause": message, "asset": None, "container_version": CONTAINER_VERSION,
