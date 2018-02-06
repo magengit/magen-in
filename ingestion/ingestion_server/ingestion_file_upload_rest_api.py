@@ -5,7 +5,7 @@ import logging
 from http import HTTPStatus
 
 import gridfs
-from flask import request, Blueprint, send_from_directory, render_template
+from flask import request, Blueprint, send_from_directory, render_template, redirect, url_for, flash
 from flask_login import login_required
 from magen_datastore_apis.main_db import MainDb
 from werkzeug.exceptions import BadRequest
@@ -452,7 +452,7 @@ def file_sharing():
 
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
-            server_urls_instance.key_server_asset_url + asset_id +"/")
+            server_urls_instance.key_server_single_asset_url.format(asset_id))
 
         if get_return_obj.success:
             symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
@@ -502,9 +502,9 @@ def file_sharing():
         return json.dumps(response), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
-@ingestion_file_upload_bp.route('/show_files/', methods=["GET"])
+@ingestion_file_upload_bp.route('/manage_files/', methods=["GET"])
 @login_required
-def show_files():
+def manage_files():
     """
     URL handler needed display all the uploaded user files.
     :param file_path:  Maps URL to files in templates directory.
@@ -515,4 +515,118 @@ def show_files():
     db_core = MainDb.get_core_db_instance()
     fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
     response = fs.find({"metadata.owner": owner})
-    return render_template('show_files.html', data=response)
+    return render_template('manage_files.html', data=response)
+
+
+@ingestion_file_upload_bp.route('/delete_files/', methods=["POST"])
+@login_required
+def delete_files():
+    """
+    URL handler needed display all the uploaded user files.
+    :param file_path:  Maps URL to files in templates directory.
+    :return: Static file from directory along with data to display
+    """
+    files_list = request.form.getlist("file")
+    server_urls_instance = ServerUrls().get_instance()
+    db_core = MainDb.get_core_db_instance()
+    fs = gridfs.GridFS(db_core.get_magen_mdb())
+    resp = []
+    try:
+        for each_file in files_list:
+
+            public_file = fs.find_one({"metadata.asset_uuid": each_file, "metadata.type": "public key"})
+
+            if not public_file:
+                get_return_obj = RestClientApis.http_get_and_check_success(
+                    server_urls_instance.key_server_single_asset_url.format(each_file))
+
+                if get_return_obj.success:
+                    key_id = get_return_obj.to_dict()['json']['response']['key']['key_id']
+                    key_return_obj = RestClientApis.http_delete_and_check_success(
+                        server_urls_instance.key_server_asset_keys_keys_key_url + key_id + "/")
+
+                    asset_return_obj = RestClientApis.http_delete_and_check_success(
+                        server_urls_instance.ingestion_server_single_asset_url.format(each_file))
+                    if key_return_obj.success and asset_return_obj.success:
+                        resp.append("success")
+                    else:
+                        raise Exception("Error deleting Key/Asset")
+                else:
+                    raise Exception("Error Key Server Problem")
+            elif public_file:
+                asset_return_obj = RestClientApis.http_delete_and_check_success(
+                    server_urls_instance.ingestion_server_single_asset_url.format(each_file))
+                if asset_return_obj.success:
+                    resp.append("success")
+                else:
+                    raise Exception("Error deleting Asset")
+            else:
+                raise Exception("Error deleting asset")
+
+    except Exception as e:
+        message = str(e)
+        resp.append(message)
+    finally:
+        if any("Error" in err for err in resp):
+            print("An error occurred while deleting files", 'error')
+        elif all(item == resp[0] for item in resp):
+            print("Successfully deleted the files", "success")
+        else:
+            print("ERROR Deleting")
+        return redirect(url_for('ingestion_file_upload.manage_files'))
+
+
+@ingestion_file_upload_bp.route('/delete_all/', methods=["POST"])
+@login_required
+def delete_all():
+    """
+    URL handler needed delete all the uploaded user files.
+    :param file_path:  Maps URL to files in templates directory.
+    :return: Static file from directory along with data to display
+    """
+    owner = "Alice"    # get owner from login
+    server_urls_instance = ServerUrls().get_instance()
+    db_core = MainDb.get_core_db_instance()
+    fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+    files_list = fs.find({"metadata.owner": owner})
+    resp = []
+    try:
+        for f in files_list:
+            if 'type' not in f.metadata:
+                get_return_obj = RestClientApis.http_get_and_check_success(
+                    server_urls_instance.key_server_single_asset_url.format(f.metadata['asset_uuid']))
+
+                if get_return_obj.success:
+                    key_id = get_return_obj.to_dict()['json']['response']['key']['key_id']
+                    key_return_obj = RestClientApis.http_delete_and_check_success(
+                        server_urls_instance.key_server_asset_keys_keys_key_url + key_id + "/")
+
+                    asset_return_obj = RestClientApis.http_delete_and_check_success(
+                        server_urls_instance.ingestion_server_single_asset_url.format(f.metadata['asset_uuid']))
+                    if key_return_obj.success and asset_return_obj.success:
+                        resp.append("success")
+                    else:
+                        raise Exception("Error deleting Key/Asset")
+                else:
+                    raise Exception("Error Key Server Problem")
+            elif 'type' in f.metadata:
+                asset_return_obj = RestClientApis.http_delete_and_check_success(
+                    server_urls_instance.ingestion_server_single_asset_url.format(f.metadata['asset_uuid']))
+                if asset_return_obj.success:
+                    resp.append("success")
+                else:
+                    raise Exception("Error deleting Asset")
+            else:
+                raise Exception("Error deleting asset")
+
+    except Exception as e:
+        message = str(e)
+        resp.append(message)
+    finally:
+        if any("Error" in err for err in resp):
+            print("An error occurred while deleting files", "error")
+        elif all(item == resp[0] for item in resp):
+            print("Successfully deleted all the files", "success")
+        else:
+            print("ERROR Deleting")
+        return redirect(url_for('ingestion_file_upload.manage_files'))
