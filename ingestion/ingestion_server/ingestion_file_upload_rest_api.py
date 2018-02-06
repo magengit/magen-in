@@ -500,19 +500,3 @@ def file_sharing():
         message = str(e)
         response = build_file_share_error_response(asset_id, message)
         return json.dumps(response), HTTPStatus.INTERNAL_SERVER_ERROR
-
-
-@ingestion_file_upload_bp.route('/show_files/', methods=["GET"])
-@login_required
-def show_files():
-    """
-    URL handler needed display all the uploaded user files.
-    :param file_path:  Maps URL to files in templates directory.
-    :return: Static file from directory along with data to display
-    """
-    # TODO: Display all the files of the logged in owner only
-    owner = "Alice"    # get owner from login
-    db_core = MainDb.get_core_db_instance()
-    fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
-    response = fs.find({"metadata.owner": owner})
-    return render_template('show_files.html', data=response)
