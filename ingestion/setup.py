@@ -36,7 +36,6 @@ setup(
         'magen_utils>=1.2a2',
         'magen_mongo>=1.0a1',
         'magen_rest_service>=1.2a4',
-        'magen_statistics_service>=1.1a1'
       ],
     scripts=['ingestion_server/ingestion_server.py'],
     package_dir={'': '..'},
@@ -48,7 +47,7 @@ setup(
     },
     test_suite='tests',
     url='',
-    license='Apache',
+    license='Apache Software License',
     author='Reinaldo Penno',
     author_email='rapenno@gmail.com',
     description='Ingestion MicroService Package',
@@ -67,7 +66,7 @@ setup(
         'Topic :: Security',
 
         # Pick your license as you wish (should match "license" above)
-        'License :: Apache',
+        'License :: OSI Approved :: Apache Software License',
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
