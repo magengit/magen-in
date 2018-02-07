@@ -27,8 +27,6 @@ from magen_mongo_apis.mongo_utils import MongoUtils
 
 from magen_rest_apis.server_urls import ServerUrls
 
-from magen_statistics_server.source_counter_rest_api import sourced_counters
-
 from magen_logger.logger_config import LogDefaults, initialize_logger
 
 from ingestion.ingestion_apis.asset_db_api import AssetDbApi
@@ -160,7 +158,6 @@ def main(args):
     login_manager = LoginManager()
     login_manager.init_app(magen)
 
-    magen.register_blueprint(sourced_counters)
     magen.register_blueprint(ingestion_bp, url_prefix='/magen/ingestion/v1')
     magen.register_blueprint(ingestion_bp_v2, url_prefix='/magen/ingestion/v2')
     magen.register_blueprint(ingestion_file_upload_bp, url_prefix='/magen/ingestion/v2')

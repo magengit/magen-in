@@ -480,24 +480,6 @@ class TestRestApi(unittest.TestCase):
                          "http://100.100.100.1:8000/magen/ks/v3/asset_keys/assets/asset/{}/")
         server_urls_instance.set_key_server_url_host_port(temp)
 
-    def test_GetIncrementCounters(self):
-        server_urls_instance = ServerUrls().get_instance()
-        resource_url = server_urls_instance.ingestion_server_base_url + "test_counters/increment/"
-        get_resp_obj = self.app.get(resource_url)
-        self.assertEqual(get_resp_obj.status_code, HTTPStatus.OK)
-
-    def test_GetResetCounters(self):
-        server_urls_instance = ServerUrls().get_instance()
-        resource_url = server_urls_instance.ingestion_server_base_url + "test_counters/reset/"
-        get_resp_obj = self.app.get(resource_url)
-        self.assertEqual(get_resp_obj.status_code, HTTPStatus.OK)
-
-    def test_GetDeleteCounters(self):
-        server_urls_instance = ServerUrls().get_instance()
-        resource_url = server_urls_instance.ingestion_server_base_url + "test_counters/delete/"
-        get_resp_obj = self.app.get(resource_url)
-        self.assertEqual(get_resp_obj.status_code, HTTPStatus.OK)
-
     def test_CryptoAES_CFB(self):
         key = b'Sixteen byte key'
         iv = Random.new().read(AES.block_size)
