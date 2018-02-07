@@ -222,6 +222,7 @@ def file_upload():
 
         # Populate asset id
         success, message, count = AssetCreationApi.process_asset(asset_dict)
+
         if success and count:
             asset_process_success = True
             # We need a dict that can be JSONified cleanly
@@ -519,7 +520,6 @@ def manage_files():
 
 
 @ingestion_file_upload_bp.route('/delete_files/', methods=["POST"])
-@login_required
 def delete_files():
     """
     URL handler needed display all the uploaded user files.
@@ -545,8 +545,9 @@ def delete_files():
                     key_return_obj = RestClientApis.http_delete_and_check_success(
                         server_urls_instance.key_server_asset_keys_keys_key_url + key_id + "/")
 
-                    asset_return_obj = RestClientApis.http_delete_and_check_success(
+                    asset_return_obj = RestClientApis.http_delete_and_get_check(
                         server_urls_instance.ingestion_server_single_asset_url.format(each_file))
+
                     if key_return_obj.success and asset_return_obj.success:
                         resp.append("success")
                     else:
@@ -554,14 +555,14 @@ def delete_files():
                 else:
                     raise Exception("Error Key Server Problem")
             elif public_file:
-                asset_return_obj = RestClientApis.http_delete_and_check_success(
+                asset_return_obj = RestClientApis.http_delete_and_get_check(
                     server_urls_instance.ingestion_server_single_asset_url.format(each_file))
                 if asset_return_obj.success:
                     resp.append("success")
                 else:
                     raise Exception("Error deleting Asset")
             else:
-                raise Exception("Error deleting asset")
+                raise Exception("Error deleting File")
 
     except Exception as e:
         message = str(e)
@@ -569,7 +570,7 @@ def delete_files():
     finally:
         if any("Error" in err for err in resp):
             print("An error occurred while deleting files", 'error')
-        elif all(item == resp[0] for item in resp):
+        elif all(item == "success" for item in resp) and resp:
             print("Successfully deleted the files", "success")
         else:
             print("ERROR Deleting")
@@ -577,7 +578,6 @@ def delete_files():
 
 
 @ingestion_file_upload_bp.route('/delete_all/', methods=["POST"])
-@login_required
 def delete_all():
     """
     URL handler needed delete all the uploaded user files.
@@ -601,7 +601,7 @@ def delete_all():
                     key_return_obj = RestClientApis.http_delete_and_check_success(
                         server_urls_instance.key_server_asset_keys_keys_key_url + key_id + "/")
 
-                    asset_return_obj = RestClientApis.http_delete_and_check_success(
+                    asset_return_obj = RestClientApis.http_delete_and_get_check(
                         server_urls_instance.ingestion_server_single_asset_url.format(f.metadata['asset_uuid']))
                     if key_return_obj.success and asset_return_obj.success:
                         resp.append("success")
@@ -610,7 +610,7 @@ def delete_all():
                 else:
                     raise Exception("Error Key Server Problem")
             elif 'type' in f.metadata:
-                asset_return_obj = RestClientApis.http_delete_and_check_success(
+                asset_return_obj = RestClientApis.http_delete_and_get_check(
                     server_urls_instance.ingestion_server_single_asset_url.format(f.metadata['asset_uuid']))
                 if asset_return_obj.success:
                     resp.append("success")
@@ -625,7 +625,7 @@ def delete_all():
     finally:
         if any("Error" in err for err in resp):
             print("An error occurred while deleting files", "error")
-        elif all(item == resp[0] for item in resp):
+        elif all(item == resp[0] for item in resp) and resp:
             print("Successfully deleted all the files", "success")
         else:
             print("ERROR Deleting")

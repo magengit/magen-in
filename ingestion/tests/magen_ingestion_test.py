@@ -92,6 +92,26 @@ class TestRestApi(unittest.TestCase):
           "title": "key details"
         }
         """
+    KEY_SERVER_DELETE_KEY_RESP = """
+        {
+          "response": {
+            "fd47b725e6d93017e7bfb04bed6643db5c063729d7844bd800bacc6dc4c705ba": "state --> deleted"
+            },
+            "status": 200, 
+            "title": "delete key"
+        }
+        """
+    INGESTION_SERVER_DELETE_ASSET_RESP = """
+        {
+          "response": {
+             "asset": "99c7b005-f027-4d6f-bea3-c61dec6e50ec",
+             "cause": "Asset not found",
+             "success": "True"
+             },
+             "status": 404,
+             "title": "Get Asset"
+        } 
+        """
 
     @classmethod
     def setUpClass(cls):
@@ -2149,4 +2169,425 @@ class TestRestApi(unittest.TestCase):
                 os.remove(filename)
             type(self).app.delete(public_delete_url)
             type(self).app.delete(public_delete_url2)
+            type(self).app.delete(delete_url)
+
+    def test_delete_files(self):
+        """
+        This test stimulates the deleting files of a client. It gets the files to be deleted through POST form data.
+        It checks if the selected file is deleted successfully
+        """
+        print("+++++++++ test_delete_files ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        delete_url = None
+
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            # delete_asset_id = ks_post_resp_json_obj["response"]["asset_id"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_asset_id = post_resp_json_obj["files"][0]["url"].split('/')[-2]
+                delete_url = post_resp_json_obj["files"][0]["url"]
+
+            ks_get_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_GET_KEY_SERVER_RESP)
+            ks_get_resp_json_obj["response"]["key"]["asset_id"] = delete_asset_id
+            ks_get_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                                json_body=ks_get_resp_json_obj,
+                                                response_object=None)
+            ks_get_mock = Mock(return_value=ks_get_rest_return_obj)
+
+            ks_delete_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_DELETE_KEY_RESP)
+            ks_delete_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                                   json_body=ks_delete_resp_json_obj,
+                                                   response_object=None)
+            ks_delete_mock = Mock(return_value=ks_delete_rest_return_obj)
+
+            asset_delete_resp_json_obj = json.loads(TestRestApi.INGESTION_SERVER_DELETE_ASSET_RESP)
+            asset_delete_resp_json_obj["response"]["asset"] = delete_asset_id
+            asset_delete_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase,
+                                                   http_status=HTTPStatus.OK,
+                                                   json_body=asset_delete_resp_json_obj,
+                                                   response_object=None)
+            asset_delete_mock = Mock(return_value=asset_delete_rest_return_obj)
+
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=ks_get_mock):
+                with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_delete_and_check_success',
+                           new=ks_delete_mock):
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_delete_and_get_check',
+                               new=asset_delete_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "delete_files/"
+                        file_delete_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': delete_asset_id},
+                                                                   headers={'content-type': 'multipart/form-data'})
+
+                        self.assertEqual(file_delete_resp_obj.status_code, HTTPStatus.FOUND)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_delete_public_key_files(self):
+        """
+        This test stimulates the deleting files of a client. It gets the files to be deleted through POST form data.
+        It checks if the selected public key file is deleted successfully
+        """
+        print("+++++++++ test_delete_public_key_files ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+
+            jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+            post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                headers={'content-type': 'multipart/form-data'})
+            post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+            delete_asset_id = post_resp_json_obj["files"][0]["url"].split('/')[-2]
+            delete_url = post_resp_json_obj["files"][0]["url"]
+
+            jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "delete_files/"
+            file_delete_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': delete_asset_id},
+                                                       headers={'content-type': 'multipart/form-data'})
+
+            self.assertEqual(file_delete_resp_obj.status_code, HTTPStatus.FOUND)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_delete_files_Fail_KS_error(self):
+        """
+        This test stimulates the deleting files of a client. It gets the files to be deleted through POST form data.
+        It passes wrong asset_id so the test fails no purpose as symmetric key is not found
+        """
+        print("+++++++++ test_delete_files_Fail_KS_error ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        delete_url = None
+
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            # delete_asset_id = ks_post_resp_json_obj["response"]["asset_id"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_asset_id = post_resp_json_obj["files"][0]["url"].split('/')[-2]
+                delete_url = post_resp_json_obj["files"][0]["url"]
+
+            ks_get_resp_json_obj = json.loads("""{"response": {"error": "key not found"}}""")
+            ks_get_rest_return_obj = RestReturn(success=False, message=HTTPStatus.BAD_REQUEST.phrase,
+                                             http_status=HTTPStatus.BAD_REQUEST,
+                                             json_body=ks_get_resp_json_obj,
+                                             response_object=None)
+            ks_get_mock = Mock(return_value=ks_get_rest_return_obj)
+
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=ks_get_mock):
+                jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "delete_files/"
+                file_delete_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': delete_asset_id},
+                                                           headers={'content-type': 'multipart/form-data'})
+
+                self.assertEqual(file_delete_resp_obj.status_code, HTTPStatus.FOUND)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_delete_files_Fail_NO_SELECTED_FILES(self):
+        """
+        This test stimulates the deleting files of a client. It gets the files to be deleted through POST form data.
+        It passes an empty selected files so the test fails on purpose.
+        """
+        print("+++++++++ test_delete_files_Fail_NO_SELECTED_FILES ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        delete_url = None
+
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            # delete_asset_id = ks_post_resp_json_obj["response"]["asset_id"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_asset_id = post_resp_json_obj["files"][0]["url"].split('/')[-2]
+                delete_url = post_resp_json_obj["files"][0]["url"]
+
+            jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "delete_files/"
+            file_delete_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': []},
+                                                       headers={'content-type': 'multipart/form-data'})
+
+            self.assertEqual(file_delete_resp_obj.status_code, HTTPStatus.FOUND)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_delete_all_files(self):
+        """
+        This test stimulates the deleting files of a client. It gets the files to be deleted through POST form data.
+        It checks if all the files are deleted successfully
+        """
+        print("+++++++++ test_delete_all_files ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        delete_url = None
+
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            # delete_asset_id = ks_post_resp_json_obj["response"]["asset_id"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_asset_id = post_resp_json_obj["files"][0]["url"].split('/')[-2]
+                delete_url = post_resp_json_obj["files"][0]["url"]
+
+            ks_get_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_GET_KEY_SERVER_RESP)
+            ks_get_resp_json_obj["response"]["key"]["asset_id"] = delete_asset_id
+            ks_get_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                                json_body=ks_get_resp_json_obj,
+                                                response_object=None)
+            ks_get_mock = Mock(return_value=ks_get_rest_return_obj)
+
+            ks_delete_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_DELETE_KEY_RESP)
+            ks_delete_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                                   json_body=ks_delete_resp_json_obj,
+                                                   response_object=None)
+            ks_delete_mock = Mock(return_value=ks_delete_rest_return_obj)
+
+            asset_delete_resp_json_obj = json.loads(TestRestApi.INGESTION_SERVER_DELETE_ASSET_RESP)
+            asset_delete_resp_json_obj["response"]["asset"] = delete_asset_id
+            asset_delete_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase,
+                                                   http_status=HTTPStatus.OK,
+                                                   json_body=asset_delete_resp_json_obj,
+                                                   response_object=None)
+            asset_delete_mock = Mock(return_value=asset_delete_rest_return_obj)
+
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=ks_get_mock):
+                with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_delete_and_check_success',
+                           new=ks_delete_mock):
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_delete_and_get_check',
+                               new=asset_delete_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "delete_all/"
+                        file_delete_resp_obj = type(self).app.post(jquery_file_share_url)
+
+                        self.assertEqual(file_delete_resp_obj.status_code, HTTPStatus.FOUND)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_delete_all_public_key_files(self):
+        """
+        This test stimulates the deleting files of a client. It gets the files to be deleted through POST form data.
+        It checks if all the public key files are deleted successfully
+        """
+        print("+++++++++ test_delete_all_public_key_files ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "Alice.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+
+            jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+            post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                headers={'content-type': 'multipart/form-data'})
+            post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+            delete_url = post_resp_json_obj["files"][0]["url"]
+
+            jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "delete_all/"
+            file_delete_resp_obj = type(self).app.post(jquery_file_share_url)
+
+            self.assertEqual(file_delete_resp_obj.status_code, HTTPStatus.FOUND)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_delete_all_files_Fail_NO_FILES(self):
+        """
+        This test stimulates the deleting files of a client. It gets the files to be deleted through POST form data.
+        It passes no files so the test fails on purpose.
+        """
+        print("+++++++++ test_delete_all_files_Fail_NO_FILES ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+
+        try:
+            jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "delete_all/"
+            file_delete_resp_obj = type(self).app.post(jquery_file_share_url)
+
+            self.assertEqual(file_delete_resp_obj.status_code, HTTPStatus.FOUND)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+
+    def test_delete_all_files_Fail_KS_error(self):
+        """
+        This test stimulates the deleting files of a client. It gets the files to be deleted through POST form data.
+
+        """
+        print("+++++++++ test_delete_all_files_Fail_KS_error ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        delete_url = None
+
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            # delete_asset_id = ks_post_resp_json_obj["response"]["asset_id"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_url = post_resp_json_obj["files"][0]["url"]
+
+            ks_get_resp_json_obj = json.loads("""{"response": {"error": "key not found"}}""")
+            ks_get_rest_return_obj = RestReturn(success=False, message=HTTPStatus.BAD_REQUEST.phrase,
+                                                http_status=HTTPStatus.BAD_REQUEST,
+                                                json_body=ks_get_resp_json_obj,
+                                                response_object=None)
+            ks_get_mock = Mock(return_value=ks_get_rest_return_obj)
+
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=ks_get_mock):
+                jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "delete_all/"
+                file_delete_resp_obj = type(self).app.post(jquery_file_share_url)
+
+                self.assertEqual(file_delete_resp_obj.status_code, HTTPStatus.FOUND)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
             type(self).app.delete(delete_url)
