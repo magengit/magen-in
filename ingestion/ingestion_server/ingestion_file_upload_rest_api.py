@@ -77,6 +77,7 @@ def build_file_upload_response(asset: dict):
     file_dict = dict()
     file_dict["name"] = asset["file_name"]
     file_dict["size"] = asset["file_size"]
+    server_urls_instance.set_ingestion_server_url_host_port(request.host)
     file_dict["url"] = server_urls_instance.ingestion_server_single_asset_url.format(asset["uuid"])
     file_dict["thumbnailUrl"] = ""
     file_dict["deleteUrl"] = server_urls_instance.ingestion_server_single_asset_url.format(asset["uuid"])
@@ -222,11 +223,13 @@ def file_upload():
         # Populate asset id
         success, message, count = AssetCreationApi.process_asset(asset_dict)
         if success and count:
+            asset_process_success = True
             # We need a dict that can be JSONified cleanly
             asset_dict_json = dict(asset_dict)
             asset_dict_json.pop('_id', None)
 
             ext = file_name.rsplit('.', 1)[1].lower()
+            public_key_owner = file_name.rsplit('.', 1)[0]
             if ext != 'pub':
                 # asset_dict_json.pop('file_path', None)
                 enc_file_path = dst_file_path + ".enc"
@@ -287,7 +290,7 @@ def file_upload():
                 with open(dst_file_path, 'wb') as dst_file:
                     dst_file.write(file_obj.read())
                 path = dst_file_path
-                metadata = {"owner": "Bob", "group": "users", "type": "public key",
+                metadata = {"owner": public_key_owner, "group": "users", "type": "public key",
                             "Public_Key_file_name": os.path.split(dst_file_path)[1],
                             "asset_uuid": asset_dict["uuid"]}
 
@@ -439,7 +442,9 @@ def file_sharing():
 
     # The uuid of the asset to be shared is received from template
     asset_id = request.form["file"]
-    receiver = request.form["selected_user"]
+    receiver = request.form.getlist("selected_user")
+    response_dict = dict()
+    code = HTTPStatus.OK
     try:
         if not asset_id or not receiver:
             response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
@@ -448,30 +453,41 @@ def file_sharing():
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
             server_urls_instance.key_server_asset_url + asset_id +"/")
+
         if get_return_obj.success:
             symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
             db_core = MainDb.get_core_db_instance()
             fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
 
-            # finds the receivers public key file for symmetric key encryption
-            user_pubkey = fs.find({'metadata.owner': receiver, 'metadata.type': 'public key'})
-            if user_pubkey.count():
-                for name in user_pubkey:
-                    fname = name.filename
-                src_file_path = os.path.join(IngestionGlobals().data_dir, fname)
+            for person in receiver:
+                try:
+                    # finds the receivers public key file for symmetric key encryption
+                    user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
+                    if user_pubkey.count():
+                        for name in user_pubkey:
+                            fname = name.filename
+                        src_file_path = os.path.join(IngestionGlobals().data_dir, fname)
 
-                # RSA asymmetric encryption algorithm used
-                with open(src_file_path) as data:
-                    public_key = RSA.importKey(data.read())
-                    cipher = PKCS1_OAEP.new(public_key)
-                    cipher_text = cipher.encrypt(symmetric_key.encode("utf-8"))
+                        # RSA asymmetric encryption algorithm used
+                        with open(src_file_path) as data:
+                            public_key = RSA.importKey(data.read())
+                            cipher = PKCS1_OAEP.new(public_key)
+                            cipher_text = cipher.encrypt(symmetric_key.encode("utf-8"))
 
-                # cipher_text stored as hex string in json response
-                file_share_response = build_file_share_response(asset_id, cipher_text.hex())
-                resp = json.dumps(file_share_response)
-                return resp, HTTPStatus.OK
-            else:
-                raise Exception('Public key does not exists')
+                        # cipher_text stored as hex string in json response
+                        file_share_response = build_file_share_response(asset_id, cipher_text.hex())
+                        response_dict[person] = file_share_response
+                    else:
+                        raise Exception('Public key does not exists')
+
+                except Exception as e:
+                    message = str(e)
+                    response_dict[person] = build_file_share_error_response(asset_id, message)
+                    code = HTTPStatus.INTERNAL_SERVER_ERROR
+
+            resp = json.dumps(response_dict)
+            return resp, code
+
         else:
             raise Exception("Key Server problem")
 
