@@ -1685,7 +1685,7 @@ class TestRestApi(unittest.TestCase):
             get_mock = Mock(return_value=get_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                form_data = {'file': share_asset_id, 'selected_user': []}  # empty receiver
+                form_data = {'file': share_asset_id}  # empty receiver
                 file_share_resp_obj = type(self).app.post(jquery_file_share_url, data=form_data,
                                                           headers={'content-type': 'multipart/form-data'})
 
