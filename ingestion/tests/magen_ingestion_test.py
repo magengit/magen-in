@@ -2364,6 +2364,7 @@ class TestRestApi(unittest.TestCase):
                 delete_url = post_resp_json_obj["files"][0]["url"]
 
             jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "delete_files/"
+            # No files are selected from the form
             file_delete_resp_obj = type(self).app.post(jquery_file_share_url,
                                                        headers={'content-type': 'multipart/form-data'})
 
