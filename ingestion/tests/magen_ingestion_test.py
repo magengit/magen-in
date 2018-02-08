@@ -133,6 +133,7 @@ class TestRestApi(unittest.TestCase):
 
         cls.magen = MagenIngestionApp().app
         cls.magen.config['TESTING'] = True
+        cls.magen.config['SECRET_KEY'] = 'ingestion_key'
         cls.magen.register_blueprint(ingestion_bp, url_prefix='/magen/ingestion/v1')
         cls.magen.register_blueprint(ingestion_bp_v2, url_prefix='/magen/ingestion/v2')
         cls.magen.register_blueprint(configuration, url_prefix='/magen/ingestion/v1')
@@ -1705,7 +1706,7 @@ class TestRestApi(unittest.TestCase):
             get_mock = Mock(return_value=get_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                form_data = {'file': share_asset_id, 'selected_user': []}  # empty receiver
+                form_data = {'file': share_asset_id}  # empty receiver
                 file_share_resp_obj = type(self).app.post(jquery_file_share_url, data=form_data,
                                                           headers={'content-type': 'multipart/form-data'})
 
@@ -2363,7 +2364,7 @@ class TestRestApi(unittest.TestCase):
                 delete_url = post_resp_json_obj["files"][0]["url"]
 
             jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "delete_files/"
-            file_delete_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': []},
+            file_delete_resp_obj = type(self).app.post(jquery_file_share_url,
                                                        headers={'content-type': 'multipart/form-data'})
 
             self.assertEqual(file_delete_resp_obj.status_code, HTTPStatus.FOUND)

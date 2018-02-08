@@ -535,11 +535,9 @@ def delete_files():
         for each_file in files_list:
 
             public_file = fs.find_one({"metadata.asset_uuid": each_file, "metadata.type": "public key"})
-
             if not public_file:
                 get_return_obj = RestClientApis.http_get_and_check_success(
                     server_urls_instance.key_server_single_asset_url.format(each_file))
-
                 if get_return_obj.success:
                     key_id = get_return_obj.to_dict()['json']['response']['key']['key_id']
                     key_return_obj = RestClientApis.http_delete_and_check_success(
@@ -547,7 +545,6 @@ def delete_files():
 
                     asset_return_obj = RestClientApis.http_delete_and_get_check(
                         server_urls_instance.ingestion_server_single_asset_url.format(each_file))
-
                     if key_return_obj.success and asset_return_obj.success:
                         resp.append("success")
                     else:
@@ -569,11 +566,11 @@ def delete_files():
         resp.append(message)
     finally:
         if any("Error" in err for err in resp):
-            print("An error occurred while deleting files", 'error')
+            flash("An error occurred while deleting files", 'error')
         elif all(item == "success" for item in resp) and resp:
-            print("Successfully deleted the files", "success")
+            flash("Successfully deleted the files", "success")
         else:
-            print("ERROR Deleting")
+            flash("ERROR Deleting")
         return redirect(url_for('ingestion_file_upload.manage_files'))
 
 
@@ -624,9 +621,9 @@ def delete_all():
         resp.append(message)
     finally:
         if any("Error" in err for err in resp):
-            print("An error occurred while deleting files", "error")
-        elif all(item == resp[0] for item in resp) and resp:
-            print("Successfully deleted all the files", "success")
+            flash("An error occurred while deleting files", "error")
+        elif all(item == "success" for item in resp) and resp:
+            flash("Successfully deleted all the files", "success")
         else:
-            print("ERROR Deleting")
+            flash("ERROR Deleting")
         return redirect(url_for('ingestion_file_upload.manage_files'))
