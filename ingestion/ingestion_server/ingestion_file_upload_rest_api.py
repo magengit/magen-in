@@ -453,7 +453,7 @@ def file_sharing():
 
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
-            server_urls_instance.key_server_single_asset_url.format(asset_id))
+            server_urls_instance.key_server_asset_url + asset_id + "/")
 
         if get_return_obj.success:
             symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
