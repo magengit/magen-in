@@ -124,11 +124,13 @@ def build_file_share_response(asset_id: str, cipher_text: str):
     {"files": [
       {
         "asset_id": "5f66e619-ab8d-4491-8b49-740476e6b08c",
-        "cipher_text": "b'J\xb4>&k\xab\x0b\xb3\xa1\xfb.\x93\xfc'",
+        "url": "http:\/\/example.org\/files\/picture1.jpg",
+        "cipher_text": "0d9aa2f19c025d36f0abd47fe636c3b7239da2e1dd",
       },
       {
         "asset_id": "22727033-67ee-4b5a-8095-4a565b3ebfd9",
-        "cipher_text": "b'J\xcdx\xf9\x94\x11|\x89|\xc0\xde\xbe#\x12SNN'",
+        "url": "http:\/\/example.org\/files\/picture2.jpg",
+        "cipher_text": "2e1dd245cca2be00ba2a6c4140e5083e02d4788ee8dbfe",
       }
     ]}
 
@@ -136,10 +138,13 @@ def build_file_share_response(asset_id: str, cipher_text: str):
     :param cipher_text: encrypted symmetric key
     :return: A properly formatted response
     """
+    server_urls_instance = ServerUrls().get_instance()
     response = dict()
     response["files"] = list()
     file_dict = dict()
     file_dict["asset_id"] = asset_id
+    server_urls_instance.set_ingestion_server_url_host_port(request.host)
+    file_dict["url"] = server_urls_instance.ingestion_server_single_asset_url.format(asset_id)
     file_dict["cipher_text"] = cipher_text
     response["files"].append(file_dict)
     return response

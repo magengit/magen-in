@@ -1632,6 +1632,8 @@ class TestRestApi(unittest.TestCase):
 
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.OK)
                 self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["asset_id"], share_asset_id)
+                url = server_urls_instance.ingestion_server_single_asset_url.format(share_asset_id)
+                self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["url"], url)
 
                 # decrypt the cipher to compare with symmetic key from key_server
                 cipher = PKCS1_OAEP.new(key)
@@ -2015,6 +2017,10 @@ class TestRestApi(unittest.TestCase):
                 self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["asset_id"], share_asset_id)
                 self.assertEqual(file_share_resp_json_obj["John"]["files"][0]["asset_id"], share_asset_id)
 
+                url = server_urls_instance.ingestion_server_single_asset_url.format(share_asset_id)
+                self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["url"], url)
+                self.assertEqual(file_share_resp_json_obj["John"]["files"][0]["url"], url)
+
                 # decrypt the cipher to compare with symmetic key from key_server
                 cipher = PKCS1_OAEP.new(key)
                 message = cipher.decrypt(bytes.fromhex(file_share_resp_json_obj["Bob"]["files"][0]["cipher_text"]))
@@ -2122,6 +2128,10 @@ class TestRestApi(unittest.TestCase):
                 self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["asset_id"], share_asset_id)
                 self.assertEqual(file_share_resp_json_obj["John"]["files"][0]["asset_id"], share_asset_id)
                 self.assertEqual(file_share_resp_json_obj["Sam"]["files"][0]["asset_id"], share_asset_id)
+
+                url = server_urls_instance.ingestion_server_single_asset_url.format(share_asset_id)
+                self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["url"], url)
+                self.assertEqual(file_share_resp_json_obj["John"]["files"][0]["url"], url)
 
                 # decrypt the cipher to compare with symmetic key from key_server
                 cipher = PKCS1_OAEP.new(key)
