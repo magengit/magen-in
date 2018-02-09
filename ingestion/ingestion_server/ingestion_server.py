@@ -157,12 +157,12 @@ def main(args):
     magen.config["LOGIN_DISABLED"] = True
     login_manager = LoginManager()
     login_manager.init_app(magen)
+    magen.config['SECRET_KEY'] = 'ingestion_key'  # must be secured
 
     magen.register_blueprint(ingestion_bp, url_prefix='/magen/ingestion/v1')
     magen.register_blueprint(ingestion_bp_v2, url_prefix='/magen/ingestion/v2')
     magen.register_blueprint(ingestion_file_upload_bp, url_prefix='/magen/ingestion/v2')
     magen.register_blueprint(configuration, url_prefix='/magen/ingestion/v1')
-
     if args.test:
         magen.run(host='0.0.0.0', port=INGESTION_SERVER_PORT, debug=True, use_reloader=False)
     elif args.unittest:
