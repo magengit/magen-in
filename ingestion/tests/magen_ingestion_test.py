@@ -1655,6 +1655,109 @@ class TestRestApi(unittest.TestCase):
             type(self).app.delete(public_delete_url)
             type(self).app.delete(delete_url)
 
+    def test_post_file_share_decrypt_and_compare(self):
+        """
+        This test stimulates the file-sharing of a client with another user. It gets the user and the file to send through
+        POST form data.
+        It checks if the symmetric key is encrypted correctly
+        """
+        print("+++++++++ test_post_file_share_decrypt_and_compare ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        public_key_file_name = "Bob.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        final_full_path = os.path.join(base_path, "test_share.txt.dec")
+        html_container_file = os.path.join(base_path, "test_share.txt.html")
+        b64_file = os.path.join(base_path, "test_share.txt.b64")
+        delete_url = None
+        public_delete_url = None
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_url = post_resp_json_obj["files"][0]["url"]
+                share_asset_id = post_resp_json_obj["files"][0]["url"].split('/')[-2]
+                ks_post_resp_json_obj["response"]["asset_id"] = share_asset_id
+
+                # Generate and upload a public key file
+                key = RSA.generate(2048)
+                public_file_path = os.path.join(base_path, public_key_file_name)
+                file = open(public_file_path, 'wb')
+                file.write(key.publickey().exportKey())
+                file.close()
+                public_files = {'files[]': (public_file_path, public_key_file_name, 'bytes')}
+                public_post_resp_obj = type(self).app.post(jquery_file_upload_url, data=public_files,
+                                                           headers={'content-type': 'multipart/form-data'})
+                public_post_resp_json_obj = json.loads(public_post_resp_obj.data.decode("utf-8"))
+                public_delete_url = public_post_resp_json_obj["files"][0]["url"]
+
+            ks_get_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_GET_KEY_SERVER_RESP)
+            # getting symmetric key from key server to compare
+            ks_key = ks_get_resp_json_obj["response"]["key"]["key"]
+            get_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=ks_get_resp_json_obj,
+                                             response_object=None)
+            get_mock = Mock(return_value=get_rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
+                jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': share_asset_id,
+                                                                                       'selected_user': ['Bob']},
+                                                          headers={'content-type': 'multipart/form-data'})
+
+                file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
+
+                self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.OK)
+                self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["asset_id"], share_asset_id)
+                url = server_urls_instance.ingestion_server_single_asset_url.format(share_asset_id)
+                self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["url"], url)
+
+                # decrypt the cipher to compare with symmetric key from key_server
+                cipher = PKCS1_OAEP.new(key)
+                message = cipher.decrypt(bytes.fromhex(file_share_resp_json_obj["Bob"]["files"][0]["cipher_text"]))
+                self.assertEqual(message, ks_key.encode('utf-8'))
+
+                # Download the shared file, decrypt it and compare with the original file
+                download_file = type(self).app.get(file_share_resp_json_obj["Bob"]["files"][0]["url"])
+                with open(html_container_file, "wb") as html_container:
+                    html_container.write(download_file.data)
+                return_data = ContainerApi.extract_meta_from_container(html_container_file)
+                with open(b64_file, "wb") as b64:
+                    b64.write(download_file.data.decode('utf-8').split(',')[-1].split('"')[0].encode('utf-8'))
+                files_equal = filecmp.cmp(os.path.join(base_path, "test_share.txt.enc.b64"), b64_file)
+                self.assertTrue(files_equal)
+                EncryptionApi.b64decode_decrypt_file_and_save(b64_file, final_full_path, message, return_data[0]["iv"],
+                                                              return_data[0]["file_size"])
+                files_equal = filecmp.cmp(file_full_path, final_full_path)
+                self.assertTrue(files_equal)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + public_key_file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(public_delete_url)
+            type(self).app.delete(delete_url)
+
     def test_post_file_share_BADREQUEST(self):
         """
         This test stimulates the file-sharing of a client with another user. It gets the user and the file to send
