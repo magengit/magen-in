@@ -528,8 +528,8 @@ def manage_files():
     """
     # TODO: Display all the files of the logged in owner only
     owner = current_user.get_id()
-    if not current_user.get_id():
-        owner = "Alice"    # get owner from login
+    if not current_user.get_id():    # To run ingestion as stand-alone
+        owner = "Alice"    
     db_core = MainDb.get_core_db_instance()
     fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
     response = fs.find({"metadata.owner": owner})
