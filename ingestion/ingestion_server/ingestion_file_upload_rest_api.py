@@ -199,8 +199,8 @@ def file_upload():
              See https://github.com/blueimp/jQuery-File-Upload/wiki/Setup
     """
     owner = current_user.get_id()
-    if not current_user.get_id():    # To run ingestion as stand-alone
-        owner = "Alice"
+    public_key_owner = owner
+
     asset_process_success = False
     asset_dict = dict()
     asset_dict["file_size"] = request.content_length
@@ -229,6 +229,10 @@ def file_upload():
 
         #asset_dict["file_path"] = dst_file_path
 
+        if not current_user.get_id():  # To run ingestion as stand-alone
+            owner = "Alice"
+            public_key_owner = file_name.rsplit('.', 1)[0]
+
         # Populate asset id
         success, message, count = AssetCreationApi.process_asset(asset_dict)
 
@@ -239,7 +243,6 @@ def file_upload():
             asset_dict_json.pop('_id', None)
 
             ext = file_name.rsplit('.', 1)[1].lower()
-            # public_key_owner = file_name.rsplit('.', 1)[0]
             if ext != 'pub':
                 # asset_dict_json.pop('file_path', None)
                 enc_file_path = dst_file_path + ".enc"
@@ -300,7 +303,7 @@ def file_upload():
                 with open(dst_file_path, 'wb') as dst_file:
                     dst_file.write(file_obj.read())
                 path = dst_file_path
-                metadata = {"owner": owner, "group": "users", "type": "public key",
+                metadata = {"owner": public_key_owner, "group": "users", "type": "public key",
                             "Public_Key_file_name": os.path.split(dst_file_path)[1],
                             "asset_uuid": asset_dict["uuid"]}
 
@@ -529,7 +532,7 @@ def manage_files():
     # TODO: Display all the files of the logged in owner only
     owner = current_user.get_id()
     if not current_user.get_id():    # To run ingestion as stand-alone
-        owner = "Alice"    
+        owner = "Alice"
     db_core = MainDb.get_core_db_instance()
     fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
     response = fs.find({"metadata.owner": owner})
