@@ -6,7 +6,7 @@ from http import HTTPStatus
 
 import gridfs
 from flask import request, Blueprint, send_from_directory, render_template, redirect, url_for, flash
-from flask_login import login_required
+from flask_login import login_required, current_user
 from magen_datastore_apis.main_db import MainDb
 from werkzeug.exceptions import BadRequest
 from Crypto.Cipher import PKCS1_OAEP
@@ -23,6 +23,7 @@ from magen_logger.logger_config import LogDefaults
 
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
 from prometheus_client import Counter
+from magen_user_api import db, config
 
 
 project_root = os.path.dirname(__file__)
@@ -197,6 +198,9 @@ def file_upload():
     :return: It returns JSON payload that jquery-file-upload understands.
              See https://github.com/blueimp/jQuery-File-Upload/wiki/Setup
     """
+    owner = current_user.get_id()
+    if not current_user.get_id():
+        owner = "Alice"
     asset_process_success = False
     asset_dict = dict()
     asset_dict["file_size"] = request.content_length
@@ -235,7 +239,7 @@ def file_upload():
             asset_dict_json.pop('_id', None)
 
             ext = file_name.rsplit('.', 1)[1].lower()
-            public_key_owner = file_name.rsplit('.', 1)[0]
+            # public_key_owner = file_name.rsplit('.', 1)[0]
             if ext != 'pub':
                 # asset_dict_json.pop('file_path', None)
                 enc_file_path = dst_file_path + ".enc"
@@ -286,7 +290,7 @@ def file_upload():
                         raise Exception("Failed to create container: {}".format(dst_file_path))
 
                     path = html_container_path
-                    metadata = {"owner": "Alice", "group": "users",
+                    metadata = {"owner": owner, "group": "users",
                                 "container_name": os.path.split(html_container_path)[1],
                                 "asset_uuid": asset_dict["uuid"]}
 
@@ -296,7 +300,7 @@ def file_upload():
                 with open(dst_file_path, 'wb') as dst_file:
                     dst_file.write(file_obj.read())
                 path = dst_file_path
-                metadata = {"owner": public_key_owner, "group": "users", "type": "public key",
+                metadata = {"owner": owner, "group": "users", "type": "public key",
                             "Public_Key_file_name": os.path.split(dst_file_path)[1],
                             "asset_uuid": asset_dict["uuid"]}
 
@@ -431,11 +435,17 @@ def file_share():
     :return: Static file from directory along with data to display
     """
     # TODO: Display all the files of the logged in owner only
-    owner = "Alice"    # get owner from login
+    owner = current_user.get_id()
+    if not current_user.get_id():
+        owner = "Alice"    # get owner from login
+    users = None
     db_core = MainDb.get_core_db_instance()
     fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+    with db.connect(config.DEV_DB_NAME) as db_instance:
+        user_collection = db_instance.get_collection(config.USER_COLLECTION_NAME)
+        users = user_collection.find({"email": {"$ne": owner}})
     response = fs.find({"metadata.owner": owner})
-    return render_template('share.html', data=response)
+    return render_template('share.html', data=response, users=users)
 
 
 @ingestion_file_upload_bp.route('/file_share/', methods=["POST"])
@@ -517,7 +527,9 @@ def manage_files():
     :return: Static file from directory along with data to display
     """
     # TODO: Display all the files of the logged in owner only
-    owner = "Alice"    # get owner from login
+    owner = current_user.get_id()
+    if not current_user.get_id():
+        owner = "Alice"    # get owner from login
     db_core = MainDb.get_core_db_instance()
     fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
     response = fs.find({"metadata.owner": owner})
@@ -586,7 +598,9 @@ def delete_all():
     :param file_path:  Maps URL to files in templates directory.
     :return: Static file from directory along with data to display
     """
-    owner = "Alice"    # get owner from login
+    owner = current_user.get_id()
+    if not current_user.get_id():
+        owner = "Alice"    # get owner from login
     server_urls_instance = ServerUrls().get_instance()
     db_core = MainDb.get_core_db_instance()
     fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
