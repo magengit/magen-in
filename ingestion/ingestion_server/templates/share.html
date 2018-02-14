@@ -51,9 +51,13 @@
 
                 <select style="width:33%;display: inline;" name="selected_user" multiple class="form-control" id="select_user">
                     <option value="">Select User</option>
-                    <option value="Bob">Bob</option>
-                    <option value="John">John</option>
-                    <option value="User3">User2</option>
+                    {% if (users)  %}
+                        {% for user in users %}
+                            {% if user %}
+                                <option value="{{ user.email }}">{{ user.email }}</option>
+                            {%  endif %}
+                        {% endfor %}
+                    {%  endif %}
                 </select>
             </div>
             <div class="row">
