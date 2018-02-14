@@ -199,7 +199,7 @@ def file_upload():
              See https://github.com/blueimp/jQuery-File-Upload/wiki/Setup
     """
     owner = current_user.get_id()
-    if not current_user.get_id():
+    if not current_user.get_id():    # To run ingestion as stand-alone
         owner = "Alice"
     asset_process_success = False
     asset_dict = dict()
@@ -436,8 +436,8 @@ def file_share():
     """
     # TODO: Display all the files of the logged in owner only
     owner = current_user.get_id()
-    if not current_user.get_id():
-        owner = "Alice"    # get owner from login
+    if not current_user.get_id():  # To run ingestion as stand-alone
+        owner = "Alice"
     users = None
     db_core = MainDb.get_core_db_instance()
     fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
@@ -599,8 +599,8 @@ def delete_all():
     :return: Static file from directory along with data to display
     """
     owner = current_user.get_id()
-    if not current_user.get_id():
-        owner = "Alice"    # get owner from login
+    if not current_user.get_id():    # To run ingestion as stand-alone 
+        owner = "Alice"
     server_urls_instance = ServerUrls().get_instance()
     db_core = MainDb.get_core_db_instance()
     fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
