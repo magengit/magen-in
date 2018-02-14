@@ -1,3 +1,3 @@
 # coding=utf-8
 """Init for Magen Ingestion service"""
-__version__ = '1.3a13'
+__version__ = '1.3a14'
