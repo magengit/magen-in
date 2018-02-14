@@ -17,16 +17,16 @@ setup(
     name='magen_ingestion_service',
     version=__version__,
     install_requires=[
-        'aniso8601>=1.2.1',
-        'coverage>=4.4.1',
+        'aniso8601>=2.0.0',
+        'coverage>=4.5.1',
         'flake8>=3.3.0',
         'Flask>=0.12.2',
         'Flask-Cors>=3.0.3',
-        'Flask-Login>=0.2',
+        'Flask-Login>=0.4.1',
         'lxml>=4.1.0',
         'pycrypto>=2.6.1',
         'pymongo>=3.4.0',
-        'pytest>=3.3.1',
+        'pytest>=3.4.0',
         'requests>=2.13.0',
         'responses>=0.5.1',
         'Sphinx>=1.6.3',
@@ -43,7 +43,8 @@ setup(
     include_package_data=True,
     package_data={
         # If any package contains *.txt or *.rst files, include them:
-        '': ['*.txt', '*.rst']
+        '': ['*.txt', '*.rst'],
+        'ingestion.ingestion_server': ['templates/*.html']
     },
     test_suite='tests',
     url='',

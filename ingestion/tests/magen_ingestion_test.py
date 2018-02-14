@@ -22,7 +22,6 @@ from Crypto import Random
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.PublicKey import RSA
 from magen_rest_apis.server_urls import ServerUrls
-from magen_utils_apis import compare_utils
 from magen_utils_apis.datetime_api import SimpleUtc
 
 from ingestion.ingestion_apis.container_api import ContainerApi
@@ -45,10 +44,10 @@ from ingestion.ingestion_server.asset_rest_api import ingestion_bp, configuratio
 from ingestion.ingestion_server.ingestion_app import MagenIngestionApp
 from ingestion.ingestion_mongo_apis.mongo_asset import MongoAsset
 from ingestion.tests.magen_ingestion_test_messages import MAGEN_SINGLE_ASSET_FINANCE_POST, \
-    MAGEN_SINGLE_ASSET_FINANCE_PUT, MAGEN_SINGLE_ASSET_FINANCE_GET_RESP, \
+    MAGEN_SINGLE_ASSET_FINANCE_PUT, \
     MAGEN_LOGGING_LEVEL, MAGEN_LOGGING_LEVEL_FAIL, \
     MAGEN_SINGLE_ASSET_FINANCE_POST_BADREQUEST, MAGEN_INGESTION_POST_WITH_EMPTY_DOWNLOAD_URL, \
-    MAGEN_INGESTION_POST_WITH_FILE_DOWNLOAD_URL, MAGEN_METADATA_TEST
+    MAGEN_INGESTION_POST_WITH_FILE_DOWNLOAD_URL
 
 __author__ = "Reinaldo Penno"
 __copyright__ = "Copyright(c) 2015, Cisco Systems, Inc."

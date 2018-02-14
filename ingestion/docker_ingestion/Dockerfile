@@ -1,6 +1,8 @@
 FROM magendocker/magen-core:latest
 MAINTAINER Alena Lifar
 
+RUN update-alternatives --set python3 /usr/bin/python3.6
+
 VOLUME ["/opt/server"]
 WORKDIR /opt/server
 ENV PYTHONPATH $PYTHONPATH:/opt/server:/opt/server/ingestion:/opt/server/ingestion/ingestion_server
