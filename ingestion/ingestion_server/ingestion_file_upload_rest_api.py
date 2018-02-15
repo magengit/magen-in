@@ -460,65 +460,81 @@ def file_sharing():
     """
 
     # The uuid of the asset to be shared is received from template
+
     asset_id = request.form["file"]
     receiver = request.form.getlist("selected_user")
     response_dict = dict()
     code = HTTPStatus.OK
-    try:
-        if not asset_id or not receiver:
-            response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
+    server_urls_instance = ServerUrls().get_instance()
+    input_dict = {  # create input to hand to OPA
+        "input": {
+            "user": "alice",
+            # "path": server_urls_instance.ingestion_server_single_asset_url.format(asset_id),
+            "method": "GET"  # HTTP verb, e.g. GET, POST, PUT, ...
+        }
+    }
+    rsp = RestClientApis.http_post_and_check_success("http://127.0.0.1:8181/v1/data/httpapi/authz",
+                                                     json.dumps(input_dict), location=False)
+
+    rsp_json = rsp.json_body
+    if rsp_json["result"]["allow"]:
+        try:
+            if not asset_id or not receiver:
+                response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
+                return json.dumps(response), HTTPStatus.BAD_REQUEST
+
+            server_urls_instance = ServerUrls().get_instance()
+            get_return_obj = RestClientApis.http_get_and_check_success(
+                server_urls_instance.key_server_single_asset_url.format(asset_id))
+
+            if get_return_obj.success:
+                symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
+                db_core = MainDb.get_core_db_instance()
+                fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+
+                for person in receiver:
+                    try:
+                        # finds the receivers public key file for symmetric key encryption
+                        user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
+                        if user_pubkey.count():
+                            for name in user_pubkey:
+                                fname = name.filename
+                            src_file_path = os.path.join(IngestionGlobals().data_dir, fname)
+
+                            # RSA asymmetric encryption algorithm used
+                            with open(src_file_path) as data:
+                                public_key = RSA.importKey(data.read())
+                                cipher = PKCS1_OAEP.new(public_key)
+                                cipher_text = cipher.encrypt(symmetric_key.encode("utf-8"))
+
+                            # cipher_text stored as hex string in json response
+                            file_share_response = build_file_share_response(asset_id, cipher_text.hex())
+                            response_dict[person] = file_share_response
+                        else:
+                            raise Exception('Public key does not exists')
+
+                    except Exception as e:
+                        message = str(e)
+                        response_dict[person] = build_file_share_error_response(asset_id, message)
+                        code = HTTPStatus.INTERNAL_SERVER_ERROR
+
+                resp = json.dumps(response_dict)
+                return resp, code
+
+            else:
+                raise Exception("Key Server problem")
+
+        except (KeyError, IndexError, BadRequest) as e:
+            message = str(e)
+            response = build_file_share_error_response(asset_id, message)
             return json.dumps(response), HTTPStatus.BAD_REQUEST
 
-        server_urls_instance = ServerUrls().get_instance()
-        get_return_obj = RestClientApis.http_get_and_check_success(
-            server_urls_instance.key_server_single_asset_url.format(asset_id))
-
-        if get_return_obj.success:
-            symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
-            db_core = MainDb.get_core_db_instance()
-            fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
-
-            for person in receiver:
-                try:
-                    # finds the receivers public key file for symmetric key encryption
-                    user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
-                    if user_pubkey.count():
-                        for name in user_pubkey:
-                            fname = name.filename
-                        src_file_path = os.path.join(IngestionGlobals().data_dir, fname)
-
-                        # RSA asymmetric encryption algorithm used
-                        with open(src_file_path) as data:
-                            public_key = RSA.importKey(data.read())
-                            cipher = PKCS1_OAEP.new(public_key)
-                            cipher_text = cipher.encrypt(symmetric_key.encode("utf-8"))
-
-                        # cipher_text stored as hex string in json response
-                        file_share_response = build_file_share_response(asset_id, cipher_text.hex())
-                        response_dict[person] = file_share_response
-                    else:
-                        raise Exception('Public key does not exists')
-
-                except Exception as e:
-                    message = str(e)
-                    response_dict[person] = build_file_share_error_response(asset_id, message)
-                    code = HTTPStatus.INTERNAL_SERVER_ERROR
-
-            resp = json.dumps(response_dict)
-            return resp, code
-
-        else:
-            raise Exception("Key Server problem")
-
-    except (KeyError, IndexError, BadRequest) as e:
-        message = str(e)
-        response = build_file_share_error_response(asset_id, message)
-        return json.dumps(response), HTTPStatus.BAD_REQUEST
-
-    except Exception as e:
-        message = str(e)
-        response = build_file_share_error_response(asset_id, message)
-        return json.dumps(response), HTTPStatus.INTERNAL_SERVER_ERROR
+        except Exception as e:
+            message = str(e)
+            response = build_file_share_error_response(asset_id, message)
+            return json.dumps(response), HTTPStatus.INTERNAL_SERVER_ERROR
+    else:
+        return "failure", HTTPStatus.FORBIDDEN
 
 
 @ingestion_file_upload_bp.route('/manage_files/', methods=["GET"])
