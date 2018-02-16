@@ -462,20 +462,23 @@ def file_sharing():
     # The uuid of the asset to be shared is received from template
 
     asset_id = request.form["file"]
-    receiver = request.form.getlist("selected_user")
+    receiver = ["bob@test.com", "john@test.com"]                 # request.form.getlist("selected_user")
     response_dict = dict()
     code = HTTPStatus.OK
     server_urls_instance = ServerUrls().get_instance()
+    orig_path_list = server_urls_instance.ingestion_server_single_asset_url.format(asset_id).split("/")
+    http_api_path_list = [x for x in orig_path_list if x]
     input_dict = {  # create input to hand to OPA
         "input": {
-            "user": "alice",
-            # "path": server_urls_instance.ingestion_server_single_asset_url.format(asset_id),
-            "method": "GET"  # HTTP verb, e.g. GET, POST, PUT, ...
+            "user": receiver,
+            "path": http_api_path_list[2:],
+            "method": "GET",  # HTTP verb, e.g. GET, POST, PUT, ...
+            "asset": asset_id
         }
     }
     rsp = RestClientApis.http_post_and_check_success("http://127.0.0.1:8181/v1/data/httpapi/authz",
                                                      json.dumps(input_dict), location=False)
-
+    print(rsp.__dict__)
     rsp_json = rsp.json_body
     if rsp_json["result"]["allow"]:
         try:
@@ -534,7 +537,8 @@ def file_sharing():
             response = build_file_share_error_response(asset_id, message)
             return json.dumps(response), HTTPStatus.INTERNAL_SERVER_ERROR
     else:
-        return "failure", HTTPStatus.FORBIDDEN
+        flash("Can't share files with some users")
+        return redirect(url_for('ingestion_file_upload.file_share'))
 
 
 @ingestion_file_upload_bp.route('/manage_files/', methods=["GET"])

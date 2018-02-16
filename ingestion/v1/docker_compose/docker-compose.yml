@@ -1,4 +1,4 @@
-version: '1'
+version: '2'
 services:
   opa:
     image: openpolicyagent/opa:0.6.0
@@ -8,6 +8,9 @@ services:
       - "run"
       - "--server"
       - "--log-level=debug"
+  api_server:
+    ports:
+      - 5020:5020
     environment:
       - OPA_ADDR=http://opa:8181
       - POLICY_PATH=/v1/data/httpapi/authz

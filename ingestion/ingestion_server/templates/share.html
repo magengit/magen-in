@@ -29,6 +29,15 @@
         <!-- Redirect browsers with JavaScript disabled to the origin page -->
         <noscript><input type="hidden" name="redirect" value="https://blueimp.github.io/jQuery-File-Upload/"></noscript>
         <!-- The fileshare-buttonbar contains buttons to share/delete files  -->
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <ul class=flashes>
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+        {% endwith %}
         <div class="row fileshare-buttonbar">
             <div class="row">
                 <button id="share_file" class="btn btn-primary share">
