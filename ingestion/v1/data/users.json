@@ -1,7 +1,7 @@
 {
   "users": [
     {
-      "alice@test.com":{"id": "1", "name": "Alice"}
+      "alice@test.com": {"id": "1", "name": "Alice"}
     },
     {
       "bob@test.com": {"id": "2", "name": "Bob"}

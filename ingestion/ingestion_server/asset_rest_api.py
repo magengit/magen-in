@@ -6,6 +6,7 @@ from http import HTTPStatus
 
 import gridfs
 from flask import request, Blueprint, send_file
+from flask_login import login_required, current_user
 from magen_datastore_apis.main_db import MainDb
 from magen_logger.logger_config import LogDefaults
 from magen_rest_apis.rest_client_apis import RestClientApis
@@ -327,16 +328,32 @@ def magen_get_asset(asset_uuid):
                                       result)
     try:
         grid_fid = documents[0].get("grid_fid", None)
+        input_dict = {  # create input to hand to OPA
+            "input": {
+                "user": current_user.get_id(),
+                "path": request.path.split('/')[1:-1],
+                "method": request.method,  # HTTP verb, e.g. GET, POST, PUT, ...
+                "asset": asset_uuid
+            }
+        }
         if grid_fid:
-            # If this asset is stored within MongoDB we need to retrieve it.
-            db_core = MainDb.get_core_db_instance()
-            fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
-            # We create a secure temp file in order to send it to user. Later we can stream the contents
-            # but this is simpler for now
-            magen_temp_file = tempfile.TemporaryFile()
-            fs.download_to_stream_by_name(documents[0]["file_name"], magen_temp_file)
-            magen_temp_file.seek(0, 0)
-            return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
+            rsp = RestClientApis.http_post_and_check_success("http://127.0.0.1:8181/v1/data/httpapi/authz",
+                                                             json.dumps(input_dict), location=False)
+            print(rsp.__dict__)
+            rsp_json = rsp.json_body
+            if rsp_json["result"]["allow"]:
+                # If this asset is stored within MongoDB we need to retrieve it.
+                db_core = MainDb.get_core_db_instance()
+                fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+                # We create a secure temp file in order to send it to user. Later we can stream the contents
+                # but this is simpler for now
+                magen_temp_file = tempfile.TemporaryFile()
+                fs.download_to_stream_by_name(documents[0]["file_name"], magen_temp_file)
+                magen_temp_file.seek(0, 0)
+                return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
+            else:
+                return RestServerApis.respond(HTTPStatus.FORBIDDEN, "Not Allowed",
+                                              {"cause": "No Permission to Download the file"})
         else:
             logger.error("GridFS ID not found in asset document: %s", asset_uuid)
             msg = "Asset not found"

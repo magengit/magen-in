@@ -462,41 +462,43 @@ def file_sharing():
     # The uuid of the asset to be shared is received from template
 
     asset_id = request.form["file"]
-    receiver = ["bob@test.com", "john@test.com"]                 # request.form.getlist("selected_user")
+    receiver = request.form.getlist("selected_user")     # ["bob", "john", "sam"]
+    policy = request.form["policy"]
     response_dict = dict()
     code = HTTPStatus.OK
     server_urls_instance = ServerUrls().get_instance()
     orig_path_list = server_urls_instance.ingestion_server_single_asset_url.format(asset_id).split("/")
     http_api_path_list = [x for x in orig_path_list if x]
-    input_dict = {  # create input to hand to OPA
-        "input": {
-            "user": receiver,
-            "path": http_api_path_list[2:],
-            "method": "GET",  # HTTP verb, e.g. GET, POST, PUT, ...
-            "asset": asset_id
-        }
-    }
-    rsp = RestClientApis.http_post_and_check_success("http://127.0.0.1:8181/v1/data/httpapi/authz",
-                                                     json.dumps(input_dict), location=False)
-    print(rsp.__dict__)
-    rsp_json = rsp.json_body
-    if rsp_json["result"]["allow"]:
-        try:
-            if not asset_id or not receiver:
-                response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
-                return json.dumps(response), HTTPStatus.BAD_REQUEST
 
-            server_urls_instance = ServerUrls().get_instance()
-            get_return_obj = RestClientApis.http_get_and_check_success(
-                server_urls_instance.key_server_single_asset_url.format(asset_id))
+    try:
+        if not asset_id or not receiver:
+            response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
+            return json.dumps(response), HTTPStatus.BAD_REQUEST
 
-            if get_return_obj.success:
-                symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
-                db_core = MainDb.get_core_db_instance()
-                fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+        server_urls_instance = ServerUrls().get_instance()
+        get_return_obj = RestClientApis.http_get_and_check_success(
+            server_urls_instance.key_server_single_asset_url.format(asset_id))
 
-                for person in receiver:
-                    try:
+        if get_return_obj.success:
+            symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
+            db_core = MainDb.get_core_db_instance()
+            fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+
+            for person in receiver:
+                try:
+                    input_dict = {  # create input to hand to OPA
+                        "input": {
+                            "user": person,
+                            "path": http_api_path_list[2:],
+                            "method": "GET",  # HTTP verb, e.g. GET, POST, PUT, ...
+                            "asset": asset_id
+                        }
+                    }
+                    rsp = RestClientApis.http_post_and_check_success("http://127.0.0.1:8181/"+policy,
+                                                                     json.dumps(input_dict), location=False)
+                    #print(rsp.__dict__)
+                    rsp_json = rsp.json_body
+                    if rsp_json["result"]["allow"]:
                         # finds the receivers public key file for symmetric key encryption
                         user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
                         if user_pubkey.count():
@@ -515,30 +517,29 @@ def file_sharing():
                             response_dict[person] = file_share_response
                         else:
                             raise Exception('Public key does not exists')
+                    else:
+                        raise Exception('Cannot Share files with '+ person)
 
-                    except Exception as e:
-                        message = str(e)
-                        response_dict[person] = build_file_share_error_response(asset_id, message)
-                        code = HTTPStatus.INTERNAL_SERVER_ERROR
+                except Exception as e:
+                    message = str(e)
+                    response_dict[person] = build_file_share_error_response(asset_id, message)
+                    code = HTTPStatus.INTERNAL_SERVER_ERROR
 
-                resp = json.dumps(response_dict)
-                return resp, code
+            resp = json.dumps(response_dict)
+            return resp, code
 
-            else:
-                raise Exception("Key Server problem")
+        else:
+            raise Exception("Key Server problem")
 
-        except (KeyError, IndexError, BadRequest) as e:
-            message = str(e)
-            response = build_file_share_error_response(asset_id, message)
-            return json.dumps(response), HTTPStatus.BAD_REQUEST
+    except (KeyError, IndexError, BadRequest) as e:
+        message = str(e)
+        response = build_file_share_error_response(asset_id, message)
+        return json.dumps(response), HTTPStatus.BAD_REQUEST
 
-        except Exception as e:
-            message = str(e)
-            response = build_file_share_error_response(asset_id, message)
-            return json.dumps(response), HTTPStatus.INTERNAL_SERVER_ERROR
-    else:
-        flash("Can't share files with some users")
-        return redirect(url_for('ingestion_file_upload.file_share'))
+    except Exception as e:
+        message = str(e)
+        response = build_file_share_error_response(asset_id, message)
+        return json.dumps(response), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @ingestion_file_upload_bp.route('/manage_files/', methods=["GET"])
