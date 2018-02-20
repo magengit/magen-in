@@ -1,15 +1,12 @@
 {
   "users": [
     {
-      "alice@test.com": {"id": "1", "name": "Alice"}
-    },
-    {
-      "bob@test.com": {"id": "2", "name": "Bob"}
-    },
-    {
-      "carl@test.com": {"id": "3", "name": "Carl"}
-    },
-    {
+      "alice@test.com": {"id": "1", "name": "Alice"},
+
+      "bob@test.com": {"id": "2", "name": "Bob"},
+
+      "carl@test.com": {"id": "3", "name": "Carl"},
+
       "john@test.com": {"id": "4", "name": "John"}
     }
   ]

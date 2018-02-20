@@ -337,14 +337,15 @@ def magen_get_asset(asset_uuid):
             }
         }
         if grid_fid:
+            # If this asset is stored within MongoDB we need to retrieve it.
+            db_core = MainDb.get_core_db_instance()
+            fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+            owner = gridfs.GridFS(db_core.get_magen_mdb()).get(grid_fid).metadata['owner']
+
             rsp = RestClientApis.http_post_and_check_success("http://127.0.0.1:8181/v1/data/httpapi/authz",
                                                              json.dumps(input_dict), location=False)
-            print(rsp.__dict__)
             rsp_json = rsp.json_body
-            if rsp_json["result"]["allow"]:
-                # If this asset is stored within MongoDB we need to retrieve it.
-                db_core = MainDb.get_core_db_instance()
-                fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+            if rsp_json["result"]["allow"] or owner == current_user.get_id():
                 # We create a secure temp file in order to send it to user. Later we can stream the contents
                 # but this is simpler for now
                 magen_temp_file = tempfile.TemporaryFile()
