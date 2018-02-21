@@ -1,0 +1,6 @@
+{
+  "asset_id": "968a30f7-b065-4b26-9b1c-eff80ae25fdb",
+  "owner": "alice@test.com",
+  "users": ["bob@test.com", "john@test.com"],
+  "url": "http://127.0.0.1:5005/magen/ingestion/v2/assets/asset/968a30f7-b065-4b26-9b1c-eff80ae25fdb/"
+}
