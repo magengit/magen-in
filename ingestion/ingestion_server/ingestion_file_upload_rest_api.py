@@ -437,18 +437,12 @@ def file_share():
     :param file_path:  Maps URL to files in templates directory.
     :return: Static file from directory along with data to display
     """
-    # TODO: Display all the files of the logged in owner only
-    owner = current_user.get_id()
-    if not current_user.get_id():  # To run ingestion as stand-alone
-        owner = "Alice"
-    users = None
-    db_core = MainDb.get_core_db_instance()
-    fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
-    with db.connect(config.DEV_DB_NAME) as db_instance:
-        user_collection = db_instance.get_collection(config.USER_COLLECTION_NAME)
-        users = user_collection.find({"email": {"$ne": owner}})
-    response = fs.find({"metadata.owner": owner})
-    return render_template('share.html', data=response, users=users)
+    files_list = request.args.getlist('file')
+    if len(files_list) > 1:
+        flash("Can Share only one file at a time")
+        return redirect(url_for('ingestion_file_upload.manage_files'))
+    else:
+        return render_template('new_share.html', asset_id=files_list[0])
 
 
 @ingestion_file_upload_bp.route('/file_share/', methods=["POST"])
@@ -458,17 +452,23 @@ def file_sharing():
     :return: It returns 'asset_uuid' of the file shared and 'cipher_text' of the symmetric key encrypted with receiver's
              public key
     """
-
     # The uuid of the asset to be shared is received from template
-    asset_id = request.form["file"]
-    receiver = request.form.getlist("selected_user")
+    asset_id = request.form["asset_id"]
+    receiver = request.form["users"].split(",")
+    receivers = [x for x in receiver if x]
+    revoke_users = request.form.getlist("selected_user")
     response_dict = dict()
     code = HTTPStatus.OK
     try:
-        if not asset_id or not receiver:
+        if not asset_id or len(receivers) == 0:
             response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
             return json.dumps(response), HTTPStatus.BAD_REQUEST
 
+        if not revoke_users:
+            # TODO: update the users list in OPA
+            pass
+
+        # TODO: add receivers to users list in OPA
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
             server_urls_instance.key_server_single_asset_url.format(asset_id))
@@ -478,7 +478,7 @@ def file_sharing():
             db_core = MainDb.get_core_db_instance()
             fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
 
-            for person in receiver:
+            for person in receivers:
                 try:
                     # finds the receivers public key file for symmetric key encryption
                     user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
