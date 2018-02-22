@@ -227,7 +227,7 @@ def file_upload():
         asset_dict["file_name"] = file_name
         dst_file_path = os.path.join(IngestionGlobals().data_dir, file_name)
 
-        #asset_dict["file_path"] = dst_file_path
+        # asset_dict["file_path"] = dst_file_path
 
         if not current_user.get_id():  # To run ingestion as stand-alone
             owner = "Alice"
@@ -483,24 +483,31 @@ def file_sharing():
 
             for person in receivers:
                 try:
-                    # finds the receivers public key file for symmetric key encryption
-                    user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
-                    if user_pubkey.count():
-                        for name in user_pubkey:
-                            fname = name.filename
-                        src_file_path = os.path.join(IngestionGlobals().data_dir, fname)
+                    with db.connect(config.DEV_DB_NAME) as db_instance:
+                        user_collection = db_instance.get_collection(config.USER_COLLECTION_NAME)
+                        users = user_collection.find({"email":  person})
+                    # Checking if the person exists or not
+                    if users.count():
+                        # finds the receivers public key file for symmetric key encryption
+                        user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
+                        if user_pubkey.count():
+                            for name in user_pubkey:
+                                fname = name.filename
+                            src_file_path = os.path.join(IngestionGlobals().data_dir, fname)
 
-                        # RSA asymmetric encryption algorithm used
-                        with open(src_file_path) as data:
-                            public_key = RSA.importKey(data.read())
-                            cipher = PKCS1_OAEP.new(public_key)
-                            cipher_text = cipher.encrypt(symmetric_key.encode("utf-8"))
+                            # RSA asymmetric encryption algorithm used
+                            with open(src_file_path) as data:
+                                public_key = RSA.importKey(data.read())
+                                cipher = PKCS1_OAEP.new(public_key)
+                                cipher_text = cipher.encrypt(symmetric_key.encode("utf-8"))
 
-                        # cipher_text stored as hex string in json response
-                        file_share_response = build_file_share_response(asset_id, cipher_text.hex())
-                        response_dict[person] = file_share_response
+                            # cipher_text stored as hex string in json response
+                            file_share_response = build_file_share_response(asset_id, cipher_text.hex())
+                            response_dict[person] = file_share_response
+                        else:
+                            raise Exception('Public key does not exists')
                     else:
-                        raise Exception('Public key does not exists')
+                        raise Exception('User ' + person + ' does not exist')
 
                 except Exception as e:
                     message = str(e)
@@ -532,7 +539,6 @@ def manage_files():
     :param file_path:  Maps URL to files in templates directory.
     :return: Static file from directory along with data to display
     """
-    # TODO: Display all the files of the logged in owner only
     owner = current_user.get_id()
     if not current_user.get_id():    # To run ingestion as stand-alone
         owner = "Alice"
