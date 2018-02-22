@@ -438,6 +438,9 @@ def file_share():
     :return: Static file from directory along with data to display
     """
     files_list = request.args.getlist('file')
+    if not files_list:
+        flash("Select a file to share")
+        return redirect(url_for('ingestion_file_upload.manage_files'))
     if len(files_list) > 1:
         flash("Can Share only one file at a time")
         return redirect(url_for('ingestion_file_upload.manage_files'))
