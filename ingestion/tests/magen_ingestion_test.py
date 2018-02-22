@@ -1623,8 +1623,8 @@ class TestRestApi(unittest.TestCase):
             get_mock = Mock(return_value=get_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': share_asset_id,
-                                                                                       'selected_user': ['Bob']},
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
+                                                                                       'users': 'Bob'},
                                                           headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
@@ -1712,8 +1712,8 @@ class TestRestApi(unittest.TestCase):
             get_mock = Mock(return_value=get_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': share_asset_id,
-                                                                                       'selected_user': ['Bob']},
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
+                                                                                       'users': 'Bob'},
                                                           headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
@@ -1810,7 +1810,7 @@ class TestRestApi(unittest.TestCase):
             get_mock = Mock(return_value=get_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                form_data = {'file': share_asset_id}  # empty receiver
+                form_data = {'asset_id': share_asset_id}  # empty receiver
                 file_share_resp_obj = type(self).app.post(jquery_file_share_url, data=form_data,
                                                           headers={'content-type': 'multipart/form-data'})
 
@@ -1869,8 +1869,8 @@ class TestRestApi(unittest.TestCase):
             get_mock = Mock(return_value=get_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': share_asset_id,
-                                                                                      'selected_user': ['Bob']},
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
+                                                                                       'users': 'Bob'},
                                                           headers={'content-type': 'multipart/form-data'})
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
                 self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["error"], "Public key does not exists")
@@ -1943,8 +1943,8 @@ class TestRestApi(unittest.TestCase):
                 jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
 
                 # pass wrong asset_id here
-                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': '9c7b005-f027-4d6f-bea3-c61dec6e50',
-                                                                                      'selected_user': ['Bob']},
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': '9c7b005-f027-4d6f-bea3-c61dec6e50',
+                                                                                       'users': 'Bob'},
                                                           headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
@@ -2017,8 +2017,8 @@ class TestRestApi(unittest.TestCase):
                 jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
 
                 # pass wrong asset_id here
-                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': share_asset_id,
-                                                                                      'selected_user': ['Bob']},
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
+                                                                                        'users': 'Bob'},
                                                           headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
@@ -2056,7 +2056,7 @@ class TestRestApi(unittest.TestCase):
         delete_url = None
         public_delete_url = None
         public_delete_url2 = None
-        receivers = ['Bob', 'John']
+        receivers = 'Bob,John'
         try:
             # upload a file
             magen_file = open(file_full_path, 'w+')
@@ -2109,8 +2109,8 @@ class TestRestApi(unittest.TestCase):
             get_mock = Mock(return_value=get_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': share_asset_id,
-                                                                                       'selected_user': receivers},
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
+                                                                                       'users': receivers},
                                                           headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
@@ -2167,7 +2167,7 @@ class TestRestApi(unittest.TestCase):
         delete_url = None
         public_delete_url = None
         public_delete_url2 = None
-        receivers = ['Bob', 'John', 'Sam']
+        receivers = 'Bob,John,Sam'
         try:
             # upload a file
             magen_file = open(file_full_path, 'w+')
@@ -2220,8 +2220,8 @@ class TestRestApi(unittest.TestCase):
             get_mock = Mock(return_value=get_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'file': share_asset_id,
-                                                                                       'selected_user': receivers},
+                file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
+                                                                                       'users': receivers},
                                                           headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
