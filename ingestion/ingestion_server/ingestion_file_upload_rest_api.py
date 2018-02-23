@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+import requests
 
 from http import HTTPStatus
 
@@ -14,6 +15,7 @@ from Crypto.PublicKey import RSA
 from ingestion.ingestion_apis.asset_db_api import AssetDbApi
 from ingestion.ingestion_apis.container_api import ContainerApi
 from ingestion.ingestion_apis.encryption_api import EncryptionApi
+from ingestion.ingestion_apis.policy_creation_api import PolicyCreationApi
 from magen_rest_apis.rest_client_apis import RestClientApis
 from magen_rest_apis.server_urls import ServerUrls
 from werkzeug.utils import secure_filename
@@ -296,6 +298,35 @@ def file_upload():
                     metadata = {"owner": owner, "group": "users",
                                 "container_name": os.path.split(html_container_path)[1],
                                 "asset_uuid": asset_dict["uuid"]}
+
+                    # Creating base document for OPA
+                    opa_filename = "asset"+''.join(x for x in asset_dict["uuid"] if x.isalnum())
+                    base_document_file = opa_filename + ".json"
+                    base_document_file_path = os.path.join(IngestionGlobals().data_dir, base_document_file)
+                    if not PolicyCreationApi.create_base_document(asset_dict["uuid"], owner, base_document_file_path):
+                        raise Exception("Failed to create base document: {}".format(base_document_file_path))
+                    # posting the base document to the OPA server
+                    with open(base_document_file_path, 'r') as doc:
+                        doc_data = doc.read()
+                        base_doc_resp = requests.put("http://localhost:8181/v1/data/"+opa_filename,
+                                                     data=doc_data, headers={'Content-Type': 'application/json'},
+                                                     params={'file': base_document_file_path})
+                    if base_doc_resp.status_code == HTTPStatus.NO_CONTENT:
+                        # Creating policy for OPA
+                        policy_file = opa_filename + ".rego"
+                        policy_file_path = os.path.join(IngestionGlobals().data_dir, policy_file)
+                        if not PolicyCreationApi.create_policy(opa_filename, policy_file_path):
+                            raise Exception("Failed to create policy: {}".format(policy_file_path))
+                        # posting the policy to the OPA server
+                        with open(policy_file_path, 'r') as file:
+                            policy_data = file.read()
+                            policy_resp = requests.put("http://localhost:8181/v1/policies/" + opa_filename,
+                                                       data=policy_data, headers={'Content-Type': 'text/plain'},
+                                                       params={'file': policy_file_path})
+                        if policy_resp.status_code != HTTPStatus.OK:
+                            print(policy_resp .status_code, ":", json.loads(policy_resp.content))
+                    else:
+                        print(base_doc_resp.status_code, ":", json.loads(base_doc_resp.content))
 
                 else:
                     raise Exception("Key Server problem")
