@@ -23,7 +23,7 @@ from magen_logger.logger_config import LogDefaults
 
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
 from prometheus_client import Counter
-from magen_user_api import db, config
+from magen_user_api import db, config, user_model
 
 
 project_root = os.path.dirname(__file__)
@@ -486,10 +486,9 @@ def file_sharing():
             for person in receivers:
                 try:
                     with db.connect(config.DEV_DB_NAME) as db_instance:
-                        user_collection = db_instance.get_collection(config.USER_COLLECTION_NAME)
-                        users = user_collection.find({"email":  person})
+                        result = user_model.UserModel.select_by_email(db_instance, person)
                     # Checking if the person exists or not
-                    if users.count():
+                    if result.count:
                         # finds the receivers public key file for symmetric key encryption
                         user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
                         if user_pubkey.count():
