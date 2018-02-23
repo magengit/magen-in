@@ -441,6 +441,7 @@ def file_share():
     if not files_list:
         flash("Select a file to share")
         return redirect(url_for('ingestion_file_upload.manage_files'))
+    # TODO: share multiple files
     if len(files_list) > 1:
         flash("Can Share only one file at a time")
         return redirect(url_for('ingestion_file_upload.manage_files'))
@@ -457,6 +458,7 @@ def file_sharing():
     """
     # The uuid of the asset to be shared is received from template
     asset_id = request.form["asset_id"]
+    # TODO split users based on special character
     receiver = request.form["users"].split(",")
     receivers = [x for x in receiver if x]
     revoke_users = request.form.getlist("selected_user")

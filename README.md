@@ -9,7 +9,7 @@ Magen Ingestion Service is a microservice responsible for ingesting a digital da
 for managing digital assets. By assets we understand any sensitive resources that could be encrypted or wrapped
 in order to restrict access to them.
 
-Current version: ```1.3a2```
+Current version: ```1.3a15```
 
 ## Git clone
 
