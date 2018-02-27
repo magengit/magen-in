@@ -44,7 +44,7 @@ function toggle(source) {
       If no decrypt operation performed, the User unable to open a file.
     </p>
 
-    <form method="POST">
+    <form>
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 <ul class=flashes>
@@ -56,8 +56,9 @@ function toggle(source) {
         {% endwith %}
         <div class="row">
             <input type="checkbox" onClick="toggle(this)" />
-            <input type="submit" formaction="/magen/ingestion/v2/delete_files/" value="Delete">
-            <input type="submit" formaction="/magen/ingestion/v2/delete_all/" value="Delete All">
+            <input type="submit" formmethod="POST" formaction="/magen/ingestion/v2/delete_files/" value="Delete">
+            <input type="submit" formmethod="POST" formaction="/magen/ingestion/v2/delete_all/" value="Delete All">
+            <input type="submit" formmethod="GET" formaction="/magen/ingestion/v2/file_share/" value="Share">
         </div>
         <div classs="row">
             {% if (data)  %}
