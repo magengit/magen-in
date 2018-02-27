@@ -449,6 +449,45 @@ def file_share():
     return render_template('new_share.html', asset_id=files_list[0])
 
 
+def create_cipher(asset_id, person, symmetric_key):
+    """
+    This function processes the encryption of the symmetric_key with user's public key
+    :param asset_id: uuid of the Asset
+    :param person: Receiver of the Asset
+    :param symmetric_key: Asset's key
+    :return: JSON object
+    """
+    db_core = MainDb.get_core_db_instance()
+    fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
+
+    with db.connect(config.DEV_DB_NAME) as db_instance:
+        result = user_model.UserModel.select_by_email(db_instance, person)
+    # Checking if the person exists or not
+    if not result.count:
+        message = 'User ' + person + ' does not exist'
+        return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
+
+    # finds the receivers public key file for symmetric key encryption
+    user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
+    if not user_pubkey.count():
+        message = 'Public key does not exists'
+        return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
+
+    fname = [name.filename for name in user_pubkey]
+    src_file_path = os.path.join(IngestionGlobals().data_dir, fname[0])
+
+    # RSA asymmetric encryption algorithm used
+    with open(src_file_path) as data:
+        public_key = RSA.importKey(data.read())
+        cipher = PKCS1_OAEP.new(public_key)
+        cipher_text = cipher.encrypt(symmetric_key.encode('utf-8'))
+
+    # cipher_text stored as hex string in json response
+    file_share_response = build_file_share_response(asset_id, cipher_text.hex())
+
+    return file_share_response, HTTPStatus.OK
+
+
 @ingestion_file_upload_bp.route('/file_share/', methods=["POST"])
 def file_sharing():
     """
@@ -482,39 +521,12 @@ def file_sharing():
             raise Exception('Key Server problem')
 
         symmetric_key = get_return_obj.to_dict()['json']['response']['key']['key']
-        db_core = MainDb.get_core_db_instance()
-        fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
 
         for person in receivers:
-            try:
-                with db.connect(config.DEV_DB_NAME) as db_instance:
-                    result = user_model.UserModel.select_by_email(db_instance, person)
-                # Checking if the person exists or not
-                if not result.count:
-                    raise Exception('User ' + person + ' does not exist')
-
-                # finds the receivers public key file for symmetric key encryption
-                user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
-                if not user_pubkey.count():
-                    raise Exception('Public key does not exists')
-
-                fname = [name.filename for name in user_pubkey]
-                src_file_path = os.path.join(IngestionGlobals().data_dir, fname[0])
-
-                # RSA asymmetric encryption algorithm used
-                with open(src_file_path) as data:
-                    public_key = RSA.importKey(data.read())
-                    cipher = PKCS1_OAEP.new(public_key)
-                    cipher_text = cipher.encrypt(symmetric_key.encode('utf-8'))
-
-                # cipher_text stored as hex string in json response
-                file_share_response = build_file_share_response(asset_id, cipher_text.hex())
-                response_dict[person] = file_share_response
-
-            except Exception as e:
-                message = str(e)
-                response_dict[person] = build_file_share_error_response(asset_id, message)
-                code = HTTPStatus.INTERNAL_SERVER_ERROR
+            resp, status = create_cipher(asset_id, person, symmetric_key)
+            response_dict[person] = resp
+            if status != HTTPStatus.OK:
+                code = status
 
         resp = json.dumps(response_dict)
         return resp, code
@@ -545,6 +557,47 @@ def manage_files():
     return render_template('manage_files.html', data=response)
 
 
+def delete_key(file_id):
+    """
+    :param file_id: uuid of the Asset
+    :return:
+    """
+    server_urls_instance = ServerUrls().get_instance()
+
+    get_return_obj = RestClientApis.http_get_and_check_success(
+        server_urls_instance.key_server_single_asset_url.format(file_id))
+    if not get_return_obj.success:
+        message = "Error Key Server Problem"
+        return False, message
+
+    key_id = get_return_obj.to_dict()['json']['response']['key']['key_id']
+    key_return_obj = RestClientApis.http_delete_and_check_success(
+        server_urls_instance.key_server_asset_keys_keys_key_url + key_id + '/')
+    if not key_return_obj.success:
+        message = "Error " + key_return_obj.message
+        return False, message
+
+    message = "success"
+    return True, message
+
+
+def delete_asset(file_id):
+    """
+    :param file_id: uuid of the Asset
+    :return:
+    """
+    server_urls_instance = ServerUrls().get_instance()
+
+    asset_return_obj = RestClientApis.http_delete_and_get_check(
+        server_urls_instance.ingestion_server_single_asset_url.format(file_id))
+    if not asset_return_obj.success:
+        message = "Error " + asset_return_obj.message
+        return False, message
+
+    message = "success"
+    return True, message
+
+
 @ingestion_file_upload_bp.route('/delete_files/', methods=["POST"])
 def delete_files():
     """
@@ -561,31 +614,19 @@ def delete_files():
         for each_file in files_list:
             public_file = fs.find_one({'metadata.asset_uuid': each_file, 'metadata.type': 'public key'})
             if not public_file:
-                get_return_obj = RestClientApis.http_get_and_check_success(
-                    server_urls_instance.key_server_single_asset_url.format(each_file))
-                if not get_return_obj.success:
-                    raise Exception("Error Key Server Problem")
+                success, key_message = delete_key(each_file)
+                if not success:
+                    resp.append(key_message)
 
-                key_id = get_return_obj.to_dict()['json']['response']['key']['key_id']
-                key_return_obj = RestClientApis.http_delete_and_check_success(
-                    server_urls_instance.key_server_asset_keys_keys_key_url + key_id + '/')
-
-                asset_return_obj = RestClientApis.http_delete_and_get_check(
-                    server_urls_instance.ingestion_server_single_asset_url.format(each_file))
-
-                if not key_return_obj.success or not asset_return_obj.success:
-                    raise Exception("Error deleting Key/Asset")
-
-                resp.append('success')
+                success, asset_message = delete_asset(each_file)
+                if not success:
+                    resp.append(asset_message)
+                resp.append(asset_message)
             elif public_file:
-                asset_return_obj = RestClientApis.http_delete_and_get_check(
-                    server_urls_instance.ingestion_server_single_asset_url.format(each_file))
-                if not asset_return_obj.success:
-                    raise Exception("Error deleting Asset")
-
-                resp.append("success")
-            else:
-                raise Exception("Error deleting File")
+                success, asset_message = delete_asset(each_file)
+                if not success:
+                    resp.append(asset_message)
+                resp.append(asset_message)
 
     except Exception as e:
         message = str(e)
@@ -614,31 +655,22 @@ def delete_all():
     files_list = fs.find({'metadata.owner': owner})
     resp = []
     try:
-        for f in files_list:
-            if 'type' not in f.metadata:
-                get_return_obj = RestClientApis.http_get_and_check_success(
-                    server_urls_instance.key_server_single_asset_url.format(f.metadata['asset_uuid']))
+        for each_file in files_list:
+            if 'type' not in each_file.metadata:
+                success, key_message = delete_key(each_file)
+                if not success:
+                    resp.append(key_message)
 
-                if not get_return_obj.success:
-                    raise Exception("Error Key Server Problem")
-                key_id = get_return_obj.to_dict()['json']['response']['key']['key_id']
-                key_return_obj = RestClientApis.http_delete_and_check_success(
-                    server_urls_instance.key_server_asset_keys_keys_key_url + key_id + "/")
+                success, asset_message = delete_asset(each_file)
+                if not success:
+                    resp.append(asset_message)
+                resp.append(asset_message)
 
-                asset_return_obj = RestClientApis.http_delete_and_get_check(
-                    server_urls_instance.ingestion_server_single_asset_url.format(f.metadata['asset_uuid']))
-                if not key_return_obj.success or not asset_return_obj.success:
-                    raise Exception("Error deleting Key/Asset")
-                resp.append("success")
-
-            elif 'type' in f.metadata:
-                asset_return_obj = RestClientApis.http_delete_and_get_check(
-                    server_urls_instance.ingestion_server_single_asset_url.format(f.metadata['asset_uuid']))
-                if not asset_return_obj.success:
-                    raise Exception("Error deleting Asset")
-                resp.append("success")
-            else:
-                raise Exception("Error deleting asset")
+            elif 'type' in each_file.metadata:
+                success, asset_message = delete_asset(each_file)
+                if not success:
+                    resp.append(asset_message)
+                resp.append(asset_message)
 
     except Exception as e:
         message = str(e)
