@@ -37,11 +37,15 @@
       <form method="POST">
           <b>Asset ID: </b><input type="text" name="asset_id" value="{{ asset_id }}" size="30">
           <b>Users: </b><input type="text" name="users" placeholder="Enter users separated by comma">
-          <br><b>Share Access:</b>
-              <select name="selected_user" multiple class="form-control" id="select_user">
-                  <option value="Bob">Bob</option>
-                  <option value="John">John</option>
-                  <option value="Carl">Carl</option>
+          <br><b>Allowed Access:</b>
+              <select name="revoked_user" multiple class="form-control" id="revoked_user">
+                  {% if revoke_users %}
+                    {% for user in revoke_users %}
+                        {% if user %}
+                          <option value="{{ user }}">{{ user }}</option>
+                        {% endif %}
+                    {% endfor %}
+                  {% endif %}
               </select>
           <input type="submit" formaction="/magen/ingestion/v2/file_share/" value="Update">
       </form>

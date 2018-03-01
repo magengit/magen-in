@@ -9,5 +9,5 @@ services:
       - "--server"
       - "--log-level=debug"
     environment:
-      - OPA_ADDR=http://opa:8181
-      - POLICY_PATH=/v1/data/httpapi/authz
+      - OPA_ADDR=http://localhost:8181
+      - POLICY_PATH=/v1/data/opa/asset<asset_id>

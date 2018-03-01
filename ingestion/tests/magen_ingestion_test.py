@@ -74,6 +74,13 @@ class TestRestApi(unittest.TestCase):
       "title": "create new key"
     }
     """
+    OPA_SERVER_POLICY_RESP = """
+    {
+      "result": {
+        "allow": "True"
+      }
+    }          
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -1508,6 +1515,12 @@ class TestRestApi(unittest.TestCase):
                 post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
                 delete_url = post_resp_json_obj["files"][0]["deleteUrl"]
                 get_url = post_resp_json_obj["files"][0]["url"]
+
+            opa_post_resp_json_obj = json.loads(TestRestApi.OPA_SERVER_POLICY_RESP)
+            opa_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=opa_post_resp_json_obj, response_object=None)
+            new_mock = Mock(return_value=opa_rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=new_mock):
                 get_resp_obj = type(self).app.get(get_url)
                 container_file_path = file_full_path + ".html"
                 with open(container_file_path, "wb+") as container_f:

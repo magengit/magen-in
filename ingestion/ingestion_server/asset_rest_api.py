@@ -355,8 +355,8 @@ def magen_get_asset(asset_uuid):
                 policy = "opa/"+"asset"+''.join(x for x in asset_uuid if x.isalnum())
                 rsp = RestClientApis.http_post_and_check_success(config.OPA_BASE_DOC_URL+policy,
                                                                  json.dumps(input_dict), location=False)
-                rsp_json = rsp.json_body
-                if rsp_json["result"]["allow"] or owner == current_user.get_id():
+                print(rsp.to_dict())
+                if rsp.json_body["result"]["allow"] or owner == current_user.get_id():
                     return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
                 else:
                     return RestServerApis.respond(HTTPStatus.FORBIDDEN, "Not Allowed",

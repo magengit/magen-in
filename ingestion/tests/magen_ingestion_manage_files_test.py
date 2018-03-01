@@ -2,8 +2,10 @@ import glob
 import filecmp
 import json
 import unittest
+from flask.testing import FlaskClient
 
 from http import HTTPStatus
+from unittest import mock
 from unittest.mock import Mock, patch
 from flask_login import LoginManager
 
@@ -77,7 +79,9 @@ class TestManageFilesRestApi(unittest.TestCase):
             }  
           },
           "status": 200,
-          "title": "key details"
+          "title": "key details",
+          "success": "True",
+          "result": ["Sam"]
         }
         """
     KEY_SERVER_DELETE_KEY_RESP = """
@@ -99,6 +103,13 @@ class TestManageFilesRestApi(unittest.TestCase):
              "status": 404,
              "title": "Get Asset"
         } 
+        """
+    OPA_SERVER_POLICY_RESP = """
+        {
+          "result": {
+            "allow": "True"
+          }
+        }          
         """
 
     @classmethod
@@ -220,12 +231,18 @@ class TestManageFilesRestApi(unittest.TestCase):
                                              json_body=ks_get_resp_json_obj, response_object=None)
             get_mock = Mock(return_value=get_rest_return_obj)
             mock_value = Mock(return_value=MongoReturn(count=1))
+
+            patch_rest_return_obj = RestReturn(success=True, message=HTTPStatus.NO_CONTENT.phrase,
+                                               http_status=HTTPStatus.NO_CONTENT, json_body=None, response_object=None)
+            patch_mock = Mock(return_value=patch_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 with patch('magen_user_api.user_model.UserModel.select_by_email', new=mock_value):
-                    jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                    file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
-                                                                                           'users': receivers},
-                                                              headers={'content-type': 'multipart/form-data'})
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
+                               new=patch_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                        file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
+                            'asset_id': share_asset_id, 'users': receivers},
+                                                                  headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.OK)
@@ -296,12 +313,18 @@ class TestManageFilesRestApi(unittest.TestCase):
                                              json_body=ks_get_resp_json_obj, response_object=None)
             get_mock = Mock(return_value=get_rest_return_obj)
             mock_value = Mock(return_value=MongoReturn(count=1))
+
+            patch_rest_return_obj = RestReturn(success=True, message=HTTPStatus.NO_CONTENT.phrase,
+                                               http_status=HTTPStatus.NO_CONTENT, json_body=None, response_object=None)
+            patch_mock = Mock(return_value=patch_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 with patch('magen_user_api.user_model.UserModel.select_by_email', new=mock_value):
-                    jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                    file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
-                                                                                           'users': 'Bob'},
-                                                              headers={'content-type': 'multipart/form-data'})
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
+                               new=patch_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                        file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
+                            'asset_id': share_asset_id, 'users': 'Bob'},
+                                                                  headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
 
@@ -315,10 +338,15 @@ class TestManageFilesRestApi(unittest.TestCase):
                 message = cipher.decrypt(bytes.fromhex(file_share_resp_json_obj["Bob"]["files"][0]["cipher_text"]))
                 self.assertEqual(message, ks_key.encode('utf-8'))
 
-                # Download the shared file, decrypt it and compare with the original file
-                download_file = type(self).app.get(file_share_resp_json_obj["Bob"]["files"][0]["url"])
-                with open(html_container_file, "wb") as html_container:
-                    html_container.write(download_file.data)
+                opa_post_resp_json_obj = json.loads(TestManageFilesRestApi.OPA_SERVER_POLICY_RESP)
+                opa_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                                 json_body=opa_post_resp_json_obj, response_object=None)
+                new_mock = Mock(return_value=opa_rest_return_obj)
+                with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=new_mock):
+                    # Download the shared file, decrypt it and compare with the original file
+                    download_file = type(self).app.get(file_share_resp_json_obj["Bob"]["files"][0]["url"])
+                    with open(html_container_file, "wb") as html_container:
+                        html_container.write(download_file.data)
                 return_data = ContainerApi.extract_meta_from_container(html_container_file)
                 with open(b64_file, "wb") as b64:
                     b64.write(download_file.data.decode('utf-8').split(',')[-1].split('"')[0].encode('utf-8'))
@@ -328,6 +356,64 @@ class TestManageFilesRestApi(unittest.TestCase):
                                                               return_data[0]["file_size"])
                 files_equal = filecmp.cmp(file_full_path, final_full_path)
                 self.assertTrue(files_equal)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + public_key_file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(public_delete_url)
+            type(self).app.delete(delete_url)
+
+    def test_post_file_share_revoke_users(self):
+        """
+        This test stimulates the file-sharing of a client with another user. It gets the user and the file to send through
+        POST form data.
+        It checks if the symmetric key is encrypted correctly for the receivers
+        """
+        print("+++++++++ test_post_file_share_Multiple_receivers ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        public_key_file_name = "Bob.pub"
+        delete_url = None
+        public_delete_url = None
+        receivers = 'Bob'
+        try:
+            # upload files
+            share_asset_id, delete_url = self.upload_file(file_name)
+            key, public_delete_url = self.upload_public_file(public_key_file_name)
+
+            ks_get_resp_json_obj = json.loads(TestManageFilesRestApi.KEY_SERVER_GET_KEY_SERVER_RESP)
+            # getting symmetric key from key server to compare
+            ks_key = ks_get_resp_json_obj["response"]["key"]["key"]
+            get_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=ks_get_resp_json_obj, response_object=None)
+            get_mock = Mock(return_value=get_rest_return_obj)
+            mock_value = Mock(return_value=MongoReturn(count=1))
+
+            patch_rest_return_obj = RestReturn(success=True, message=HTTPStatus.NO_CONTENT.phrase,
+                                               http_status=HTTPStatus.NO_CONTENT, json_body=None, response_object=None)
+            patch_mock = Mock(return_value=patch_rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
+                with patch('magen_user_api.user_model.UserModel.select_by_email', new=mock_value):
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
+                               new=patch_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                        file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
+                            'asset_id': share_asset_id, 'users': receivers},
+                                                                  headers={'content-type': 'multipart/form-data'})
+                        resp_obj = type(self).app.post(jquery_file_share_url, data={
+                            'asset_id': share_asset_id, 'users': receivers, 'revoked_user': 'Sam'},
+                                                                  headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.OK)
+                self.assertEqual(resp_obj.status_code, HTTPStatus.OK)
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
@@ -366,12 +452,18 @@ class TestManageFilesRestApi(unittest.TestCase):
                                              response_object=None)
             get_mock = Mock(return_value=get_rest_return_obj)
             mock_value = Mock(return_value=MongoReturn(count=1))
+
+            patch_rest_return_obj = RestReturn(success=True, message=HTTPStatus.NO_CONTENT.phrase,
+                                               http_status=HTTPStatus.NO_CONTENT, json_body=None, response_object=None)
+            patch_mock = Mock(return_value=patch_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 with patch('magen_user_api.user_model.UserModel.select_by_email', new=mock_value):
-                    jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                    form_data = {'asset_id': share_asset_id}  # empty receiver
-                    file_share_resp_obj = type(self).app.post(jquery_file_share_url, data=form_data,
-                                                              headers={'content-type': 'multipart/form-data'})
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
+                               new=patch_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                        form_data = {'asset_id': share_asset_id}  # empty receiver
+                        file_share_resp_obj = type(self).app.post(jquery_file_share_url, data=form_data,
+                                                                  headers={'content-type': 'multipart/form-data'})
 
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
 
@@ -409,11 +501,17 @@ class TestManageFilesRestApi(unittest.TestCase):
                                              json_body=ks_get_resp_json_obj, response_object=None)
             get_mock = Mock(return_value=get_rest_return_obj)
             mock_value = Mock(return_value=MongoReturn(count=1))
+
+            patch_rest_return_obj = RestReturn(success=True, message=HTTPStatus.NO_CONTENT.phrase,
+                                               http_status=HTTPStatus.NO_CONTENT, json_body=None, response_object=None)
+            patch_mock = Mock(return_value=patch_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 with patch('magen_user_api.user_model.UserModel.select_by_email', new=mock_value):
-                    jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                    file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
-                        'asset_id': share_asset_id, 'users': 'Bob'}, headers={'content-type': 'multipart/form-data'})
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
+                               new=patch_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                        file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
+                            'asset_id': share_asset_id, 'users': 'Bob'}, headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
 
@@ -455,14 +553,20 @@ class TestManageFilesRestApi(unittest.TestCase):
                                              response_object=None)
             get_mock = Mock(return_value=get_rest_return_obj)
             mock_value = Mock(return_value=MongoReturn(count=1))
+
+            patch_rest_return_obj = RestReturn(success=True, message=HTTPStatus.NO_CONTENT.phrase,
+                                               http_status=HTTPStatus.NO_CONTENT, json_body=None, response_object=None)
+            patch_mock = Mock(return_value=patch_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 with patch('magen_user_api.user_model.UserModel.select_by_email', new=mock_value):
-                    jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
+                               new=patch_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
 
-                    # pass wrong asset_id here
-                    wrong_asset_id = '9c7b005-f027-4d6f-bea3-c61dec6e50'
-                    file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
-                        'asset_id': wrong_asset_id, 'users': 'Bob'}, headers={'content-type': 'multipart/form-data'})
+                        # pass wrong asset_id here
+                        wrong_asset_id = '9c7b005-f027-4d6f-bea3-c61dec6e50'
+                        file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
+                            'asset_id': wrong_asset_id, 'users': 'Bob'}, headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
 
@@ -503,13 +607,19 @@ class TestManageFilesRestApi(unittest.TestCase):
 
             get_mock = Mock(side_effect=KeyError)
             mock_value = Mock(return_value=MongoReturn(count=1))
+
+            patch_rest_return_obj = RestReturn(success=True, message=HTTPStatus.NO_CONTENT.phrase,
+                                               http_status=HTTPStatus.NO_CONTENT, json_body=None, response_object=None)
+            patch_mock = Mock(return_value=patch_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 with patch('magen_user_api.user_model.UserModel.select_by_email', new=mock_value):
-                    jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
+                               new=patch_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
 
-                    file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
-                                                                                           'users': 'Bob'},
-                                                              headers={'content-type': 'multipart/form-data'})
+                        file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
+                                                                                               'users': 'Bob'},
+                                                                  headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
@@ -560,12 +670,18 @@ class TestManageFilesRestApi(unittest.TestCase):
                                              response_object=None)
             get_mock = Mock(return_value=get_rest_return_obj)
             mock_value = Mock(return_value=MongoReturn(count=1))
+
+            patch_rest_return_obj = RestReturn(success=True, message=HTTPStatus.NO_CONTENT.phrase,
+                                               http_status=HTTPStatus.NO_CONTENT, json_body=None, response_object=None)
+            patch_mock = Mock(return_value=patch_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
                 with patch('magen_user_api.user_model.UserModel.select_by_email', new=mock_value):
-                    jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                    file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={'asset_id': share_asset_id,
-                                                                                           'users': receivers},
-                                                              headers={'content-type': 'multipart/form-data'})
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
+                               new=patch_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                        file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
+                            'asset_id': share_asset_id, 'users': receivers},
+                                                                  headers={'content-type': 'multipart/form-data'})
 
                 file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.INTERNAL_SERVER_ERROR)

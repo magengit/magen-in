@@ -297,7 +297,7 @@ def file_upload():
                     metadata = {"owner": owner, "group": "users",
                                 "container_name": os.path.split(html_container_path)[1],
                                 "asset_uuid": asset_dict["uuid"]}
-                    success, message = policy_api.create_opa_policy(asset_dict["uuid"], owner)
+                    success, message = policy_api.process_opa_policy(asset_dict["uuid"], owner)
                     if not success:
                         raise Exception(message)
                 else:
@@ -449,7 +449,12 @@ def file_share():
         flash('Can Share only one file at a time')
         return redirect(url_for('ingestion_file_upload.manage_files'))
 
-    return render_template('new_share.html', asset_id=files_list[0])
+    success, message = policy_api.display_allowed_users(files_list[0])
+    if not success:
+        flash(message)
+        return redirect(url_for('ingestion_file_upload.manage_files'))
+
+    return render_template('new_share.html', asset_id=files_list[0], revoke_users=message)
 
 
 def create_cipher(asset_id, person, symmetric_key):
@@ -468,6 +473,13 @@ def create_cipher(asset_id, person, symmetric_key):
     # Checking if the person exists or not
     if not result.count:
         message = 'User ' + person + ' does not exist'
+        return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
+
+    # TODO: add receivers to users list in OPA
+    # User added to the list of allowed users in OPA policy
+    policy_resp_obj = policy_api.base_doc_add_user(asset_id, person)
+    if not policy_resp_obj.success:
+        message = 'Failed to grant file access to ' + person
         return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
 
     # finds the receivers public key file for symmetric key encryption
@@ -503,7 +515,7 @@ def file_sharing():
     # TODO split users based on special character
     receiver = request.form['users'].split(',')
     receivers = [x for x in receiver if x]
-    revoke_users = request.form.getlist('selected_user')
+    revoke_users = request.form.getlist('revoked_user')
     response_dict = dict()
     code = HTTPStatus.OK
     try:
@@ -511,11 +523,11 @@ def file_sharing():
             response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
             return json.dumps(response), HTTPStatus.BAD_REQUEST
 
-        if not revoke_users:
+        if revoke_users:
             # TODO: update the users list in OPA
-            pass
+            for user in revoke_users:
+                policy_api.base_doc_revoke_user(asset_id, user)
 
-        # TODO: add receivers to users list in OPA
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
             server_urls_instance.key_server_single_asset_url.format(asset_id))
