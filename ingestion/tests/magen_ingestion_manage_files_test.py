@@ -2,10 +2,8 @@ import glob
 import filecmp
 import json
 import unittest
-from flask.testing import FlaskClient
 
 from http import HTTPStatus
-from unittest import mock
 from unittest.mock import Mock, patch
 from flask_login import LoginManager
 
@@ -176,13 +174,15 @@ class TestManageFilesRestApi(unittest.TestCase):
         rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
                                      json_body=ks_post_resp_json_obj,
                                      response_object=None)
-        mock = Mock(return_value=rest_return_obj)
-        with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
-            jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
-            post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
-                                                headers={'content-type': 'multipart/form-data'})
-            post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
-            delete_url = post_resp_json_obj["files"][0]["url"]
+        ks_mock = Mock(return_value=rest_return_obj)
+        opa_mock = Mock(return_value=(True, 'Policy created successfully!'))
+        with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=ks_mock):
+            with patch('ingestion.ingestion_apis.policy_api.process_opa_policy', new=opa_mock):
+                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                delete_url = post_resp_json_obj["files"][0]["url"]
 
         return share_asset_id, delete_url
 
