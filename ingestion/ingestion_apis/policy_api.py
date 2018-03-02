@@ -135,7 +135,7 @@ def base_doc_add_user(asset_id, user):
         return resp_obj
     except Exception as e:
         message = str(e)
-        return RestReturn(success=False, message=message)
+        return RestReturn(success=False, message=message, http_status=HTTPStatus.BAD_REQUEST)
 
 
 def base_doc_revoke_user(asset_id, user):
@@ -163,7 +163,7 @@ def base_doc_revoke_user(asset_id, user):
         return resp_obj
     except Exception as e:
         message = str(e)
-        return RestReturn(success=False, message=message)
+        return RestReturn(success=False, message=message, http_status=HTTPStatus.BAD_REQUEST)
 
 
 def display_allowed_users(asset_id):
@@ -177,3 +177,5 @@ def display_allowed_users(asset_id):
     except Exception as e:
         message = str(e)
         return False, message
+
+    # TODO implement delete policy on asset deletion:

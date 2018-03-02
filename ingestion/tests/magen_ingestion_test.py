@@ -81,6 +81,13 @@ class TestRestApi(unittest.TestCase):
       }
     }          
     """
+    OPA_SERVER_POLICY_FAIL_RESP = """
+        {
+          "result": {
+            "allow": "False"
+          }
+        }          
+        """
 
     @classmethod
     def setUpClass(cls):
@@ -1539,6 +1546,49 @@ class TestRestApi(unittest.TestCase):
                 self.assertIsNotNone(out_file_path)
                 with open(out_file_path, "rb") as f:
                     self.assertEqual(f.read(), "this is a test".encode("utf-8"))
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_JQuery_Upload_PublicFile_Retrieve_with_GET(self):
+        """
+        Uploads a Public key file, retrieves the file from the url found in the POST Response and compare with
+        original file
+        """
+        print("++++++++++ test_JQuery_UploadPublicFile_Retrieve_with_GET +++++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        fs = gridfs.GridFSBucket(type(self).db.core_database.get_magen_mdb())
+        delete_url = None
+        get_url = None
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+
+            jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+            post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                headers={'content-type': 'multipart/form-data'})
+            post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+            delete_url = post_resp_json_obj["files"][0]["deleteUrl"]
+            get_url = post_resp_json_obj["files"][0]["url"]
+
+            get_resp_obj = type(self).app.get(get_url)
+            self.assertEqual(get_resp_obj.data, "this is a test".encode("utf-8"))
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))

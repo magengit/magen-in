@@ -672,17 +672,17 @@ def delete_all():
     try:
         for each_file in files_list:
             if 'type' not in each_file.metadata:
-                success, key_message = delete_key(each_file)
+                success, key_message = delete_key(each_file.metadata['asset_uuid'])
                 if not success:
                     resp.append(key_message)
 
-                success, asset_message = delete_asset(each_file)
+                success, asset_message = delete_asset(each_file.metadata['asset_uuid'])
                 if not success:
                     resp.append(asset_message)
                 resp.append(asset_message)
 
             elif 'type' in each_file.metadata:
-                success, asset_message = delete_asset(each_file)
+                success, asset_message = delete_asset(each_file.metadata['asset_uuid'])
                 if not success:
                     resp.append(asset_message)
                 resp.append(asset_message)
