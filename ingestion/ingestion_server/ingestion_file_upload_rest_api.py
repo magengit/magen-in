@@ -446,7 +446,7 @@ def file_share():
         flash('Can Share only one file at a time')
         return redirect(url_for('ingestion_file_upload.manage_files'))
 
-    return render_template('new_share.html', asset_id=files_list[0])
+    return render_template('share.html', asset_id=files_list[0])
 
 
 def create_cipher(asset_id, person, symmetric_key):
