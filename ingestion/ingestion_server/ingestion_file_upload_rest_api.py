@@ -515,7 +515,7 @@ def file_sharing():
     # TODO split users based on special character
     receiver = request.form['users'].split(',')
     receivers = [x for x in receiver if x]
-    revoke_users = request.form.getlist('revoked_user')
+    revoke_users = request.form.getlist('selected_user')
     response_dict = dict()
     code = HTTPStatus.OK
     try:
