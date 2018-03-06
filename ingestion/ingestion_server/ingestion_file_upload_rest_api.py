@@ -297,9 +297,9 @@ def file_upload():
                     metadata = {"owner": owner, "group": "users",
                                 "container_name": os.path.split(html_container_path)[1],
                                 "asset_uuid": asset_dict["uuid"]}
-                    success, message = policy_api.process_opa_policy(asset_dict["uuid"], owner)
-                    if not success:
-                        raise Exception(message)
+                    opa_resp = policy_api.process_opa_policy(asset_dict["uuid"], owner)
+                    if not opa_resp.success:
+                        raise Exception(opa_resp.message)
                 else:
                     raise Exception("Key Server problem")
             else:
@@ -454,7 +454,7 @@ def file_share():
         flash(message)
         return redirect(url_for('ingestion_file_upload.manage_files'))
 
-    return render_template('new_share.html', asset_id=files_list[0], revoke_users=message)
+    return render_template('share.html', asset_id=files_list[0], revoke_users=message)
 
 
 def create_cipher(asset_id, person, symmetric_key):
@@ -473,13 +473,6 @@ def create_cipher(asset_id, person, symmetric_key):
     # Checking if the person exists or not
     if not result.count:
         message = 'User ' + person + ' does not exist'
-        return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
-
-    # TODO: add receivers to users list in OPA
-    # User added to the list of allowed users in OPA policy
-    policy_resp_obj = policy_api.base_doc_add_user(asset_id, person)
-    if not policy_resp_obj.success:
-        message = 'Failed to grant file access to ' + person
         return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
 
     # finds the receivers public key file for symmetric key encryption
@@ -523,11 +516,11 @@ def file_sharing():
             response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
             return json.dumps(response), HTTPStatus.BAD_REQUEST
 
-        if revoke_users:
+        if not revoke_users:
             # TODO: update the users list in OPA
-            for user in revoke_users:
-                policy_api.base_doc_revoke_user(asset_id, user)
+            pass
 
+        # TODO: add receivers to users list in OPA
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
             server_urls_instance.key_server_single_asset_url.format(asset_id))
@@ -636,6 +629,10 @@ def delete_files():
                 success, asset_message = delete_asset(each_file)
                 if not success:
                     resp.append(asset_message)
+
+                opa_resp = policy_api.delete_policy(each_file)
+                if not opa_resp.success:
+                    resp.append("Error" + opa_resp.message)
                 resp.append(asset_message)
             elif public_file:
                 success, asset_message = delete_asset(each_file)
@@ -679,6 +676,10 @@ def delete_all():
                 success, asset_message = delete_asset(each_file.metadata['asset_uuid'])
                 if not success:
                     resp.append(asset_message)
+
+                opa_resp = policy_api.delete_policy(each_file.metadata['asset_uuid'])
+                if not opa_resp.success:
+                    resp.append("Error" + opa_resp.message)
                 resp.append(asset_message)
 
             elif 'type' in each_file.metadata:

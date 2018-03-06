@@ -34,7 +34,7 @@ class PolicyApiTest(unittest.TestCase):
             data = [
                 {
                     'op': 'remove',
-                    'path': '/users/'
+                    'path': '/'
                 }
             ]
             resp_policy = RestClientApis.http_delete_and_check_success(config.OPA_POLICY_URL + opa_filename)
@@ -50,9 +50,9 @@ class PolicyApiTest(unittest.TestCase):
         This test checks the creation and processing of a policy for a particular asset
         """
         try:
-            success, message = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
-            self.assertTrue(success)
-            self.assertIn("Policy created successfully", message)
+            resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
+            self.assertTrue(resp.success)
+            self.assertEqual(resp.http_status, HTTPStatus.OK)
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
             self.assertTrue(False)
@@ -68,8 +68,8 @@ class PolicyApiTest(unittest.TestCase):
         try:
             mock = Mock(side_effect=FileExistsError)
             with patch('ingestion.ingestion_apis.policy_api.create_policy_file', new=mock):
-                success, message = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
-                self.assertFalse(success)
+                resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
+                self.assertFalse(resp.success)
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
             self.assertTrue(False)
@@ -84,9 +84,9 @@ class PolicyApiTest(unittest.TestCase):
         """
         try:
             # Policy creation
-            success, message = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
-            self.assertTrue(success)
-            self.assertIn("Policy created successfully", message)
+            resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
+            self.assertTrue(resp.success)
+            self.assertEqual(resp.http_status, HTTPStatus.OK)
 
             resp = policy_api.base_doc_add_user(PolicyApiTest.ASSET_ID, "Bob")
             self.assertEqual(resp.http_status, HTTPStatus.NO_CONTENT)
@@ -121,9 +121,9 @@ class PolicyApiTest(unittest.TestCase):
         """
         try:
             # Policy creation
-            success, message = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
-            self.assertTrue(success)
-            self.assertIn("Policy created successfully", message)
+            resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
+            self.assertTrue(resp.success)
+            self.assertEqual(resp.http_status, HTTPStatus.OK)
 
             resp = policy_api.base_doc_add_user(PolicyApiTest.ASSET_ID, 'Bob')
             self.assertEqual(resp.http_status, HTTPStatus.NO_CONTENT)
