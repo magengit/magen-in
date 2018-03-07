@@ -69,7 +69,7 @@ class PolicyApiTest(unittest.TestCase):
             print("Verification Error: {}".format(e))
             self.assertTrue(False)
 
-    def test_process_opa_policy_Fail_FILE_EXISTS(self):
+    def test_process_opa_policy_fail_FILE_EXISTS(self):
         """
         The policy file already exists so the test fails on purpose
         """
