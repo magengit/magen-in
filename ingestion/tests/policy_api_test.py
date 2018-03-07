@@ -2,6 +2,7 @@ import unittest
 import json
 import subprocess
 import shlex
+from requests import exceptions
 
 from http import HTTPStatus
 from unittest.mock import Mock, patch
@@ -9,6 +10,7 @@ from ingestion.ingestion_apis import policy_api
 from ingestion.ingestion_apis import config
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
 from magen_rest_apis.rest_client_apis import RestClientApis
+from magen_rest_apis.rest_client_apis import RestReturn
 from ingestion.tests.magen_env import *
 
 
@@ -31,6 +33,7 @@ class PolicyApiTest(unittest.TestCase):
                         run --server --log-level debug"
         args = shlex.split(docker_cli)
         p = subprocess.Popen(args)
+        p.kill()
 
     def tearDown(self):
         opa_filename = 'asset' + ''.join(x for x in PolicyApiTest.ASSET_ID if x.isalnum())
@@ -49,7 +52,6 @@ class PolicyApiTest(unittest.TestCase):
                                                                json.dumps(data))
             self.assertTrue(resp.success)
             self.assertEqual(resp.http_status, HTTPStatus.NO_CONTENT)
-        subprocess.Popen.kill()
 
     def test_process_opa_policy(self):
         """
@@ -67,13 +69,47 @@ class PolicyApiTest(unittest.TestCase):
             print("Verification Error: {}".format(e))
             self.assertTrue(False)
 
-    def test_process_opa_policy_fail_FILE_EXISTS(self):
+    def test_process_opa_policy_Fail_FILE_EXISTS(self):
         """
         The policy file already exists so the test fails on purpose
         """
         try:
             mock = Mock(side_effect=FileExistsError)
             with patch('ingestion.ingestion_apis.policy_api.create_policy_file', new=mock):
+                resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
+                self.assertFalse(resp.success)
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+
+    def test_process_opa_policy_Fail_CONNECT_ERROR(self):
+        """
+        The policy file already exists so the test fails on purpose
+        """
+        try:
+            mock = Mock(side_effect=exceptions.ConnectionError)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_put_and_check_success', new=mock):
+                resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
+                self.assertFalse(resp.success)
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+
+    def test_process_opa_policy_Fail_VALUE_Error(self):
+        """
+        The policy file already exists so the test fails on purpose
+        """
+        try:
+            mock = Mock(side_effect=ValueError)
+            with patch('ingestion.ingestion_apis.policy_api.create_base_document', new=mock):
                 resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
                 self.assertFalse(resp.success)
         except (OSError, IOError) as e:
@@ -183,6 +219,36 @@ class PolicyApiTest(unittest.TestCase):
             display_resp = policy_api.display_allowed_users(PolicyApiTest.ASSET_ID)
             self.assertTrue(display_resp[0])
             self.assertEqual(['Bob'], display_resp[1])
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+
+    def test_delete_policy(self):
+        try:
+            # Policy creation
+            resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
+            self.assertTrue(resp.success)
+
+            delete_resp = policy_api.delete_policy(PolicyApiTest.ASSET_ID)
+            self.assertTrue(delete_resp.success)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+
+    def test_delete_policy_Fail_INVALID_URL_Error(self):
+        try:
+            delete_resp = policy_api.delete_policy(PolicyApiTest.ASSET_ID)
+            self.assertFalse(delete_resp.success)
+
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
             self.assertTrue(False)

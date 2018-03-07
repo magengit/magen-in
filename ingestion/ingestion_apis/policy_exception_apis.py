@@ -107,18 +107,6 @@ def file_exists_error(err):
     return rest_return_obj
 
 
-@handle_specific_exception.register(EOFError)
-def eof_error(err):
-    """Handles specific exception requests.exceptions.EOFError"""
-    LOGGER.error('EOFError. Error: %s', err)
-    success = False
-    message = HTTPStatus.BAD_REQUEST.phrase
-    http_status = HTTPStatus.BAD_REQUEST
-    rest_return_obj = RestReturn(success=success, message=message,
-                                 http_status=http_status, json_body=None, response_object=None)
-    return rest_return_obj
-
-
 @handle_specific_exception.register(FileNotFoundError)
 def file_not_found_error(err):
     """Handles specific exception requests.exceptions.FileNotFoundError"""
@@ -135,6 +123,18 @@ def file_not_found_error(err):
 def index_error(err):
     """Handles specific exception requests.exceptions.IndexError"""
     LOGGER.error('IndexError. Error: %s', err)
+    success = False
+    message = HTTPStatus.BAD_REQUEST.phrase
+    http_status = HTTPStatus.BAD_REQUEST
+    rest_return_obj = RestReturn(success=success, message=message,
+                                 http_status=http_status, json_body=None, response_object=None)
+    return rest_return_obj
+
+
+@handle_specific_exception.register(ValueError)
+def value_error(err):
+    """Handles specific exception requests.exceptions.ValueError"""
+    LOGGER.error('ValueError. Error: %s', err)
     success = False
     message = HTTPStatus.BAD_REQUEST.phrase
     http_status = HTTPStatus.BAD_REQUEST

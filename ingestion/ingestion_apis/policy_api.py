@@ -1,6 +1,7 @@
 import logging
 import os
 import json
+import simplejson
 import glob
 from http import HTTPStatus
 from requests import exceptions
@@ -29,8 +30,8 @@ def known_exceptions(func):
         """Actual Decorator for handling known exceptions"""
         try:
             return func(*args, **kwargs)
-        except (exceptions.RequestException, FileExistsError, FileNotFoundError, EOFError, IndexError,
-                json.JSONDecodeError) as err:
+        except (exceptions.RequestException, FileExistsError, FileNotFoundError, IndexError, ValueError,
+                json.JSONDecodeError, simplejson.JSONDecodeError) as err:
             return handle_specific_exception(err)
         except TypeError as err:
             success = False
@@ -59,7 +60,9 @@ def create_policy_file(asset, policy_file):
         file.write('http_api.user = ' + asset + '[users][_]\n\t')
         file.write('http_api.path = ' + asset + '[url]\n')
         file.write('}')
-    return True
+    resp = RestReturn(success=True, message=HTTPStatus.OK.phrase,
+                      http_status=HTTPStatus.OK, json_body=None, response_object=None)
+    return resp
 
 
 @known_exceptions
@@ -78,7 +81,9 @@ def create_base_document(asset_id, owner):
     data['users'] = []
     data['url'] = server_urls_instance.ingestion_server_single_asset_url.format(asset_id)
     json_data = json.dumps(data)
-    return True, json_data
+    resp = RestReturn(success=True, message=HTTPStatus.OK.phrase,
+                      http_status=HTTPStatus.OK, json_body=json_data, response_object=None)
+    return resp
 
 
 @known_exceptions
@@ -91,19 +96,20 @@ def process_opa_policy(asset_id, owner):
     # TODO resolve concurrent user requests
     opa_filename = 'asset' + ''.join(x for x in asset_id if x.isalnum())
     # Creating base document for OPA
-    success, message = create_base_document(asset_id, owner)
-    if not success:
-        raise json.JSONDecodeError(message)
+    resp = create_base_document(asset_id, owner)
+    if not resp.success:
+        raise ValueError(resp.message)
 
-    base_doc_resp = RestClientApis.http_put_and_check_success(config.OPA_BASE_DOC_URL + opa_filename,
-                                                              message, headers={'Content-Type': 'application/json'})
+    base_doc_resp = RestClientApis.http_put_and_check_success(config.OPA_BASE_DOC_URL + opa_filename, resp.json_body,
+                                                              headers={'Content-Type': 'application/json'})
     if base_doc_resp.http_status != HTTPStatus.NO_CONTENT:
         raise exceptions.HTTPError(base_doc_resp.http_status, ':', base_doc_resp.message)
 
     # Creating policy for OPA
     policy_file = opa_filename + '.rego'
     policy_file_path = os.path.join(IngestionGlobals().data_dir, policy_file)
-    if not create_policy_file(opa_filename, policy_file_path):
+    resp = create_policy_file(opa_filename, policy_file_path)
+    if not resp.success:
         raise FileExistsError('Failed to create policy: {}'.format(policy_file_path))
 
     # posting the policy to the OPA server
