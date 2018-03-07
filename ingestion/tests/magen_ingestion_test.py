@@ -1256,7 +1256,9 @@ class TestRestApi(unittest.TestCase):
                                          json_body=ks_post_resp_json_obj,
                                          response_object=None)
             mock = Mock(return_value=rest_return_obj)
-            opa_mock = Mock(return_value=(True, 'Policy created successfully!'))
+            opa_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=None, response_object=None)
+            opa_mock = Mock(return_value=opa_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
                 with patch('ingestion.ingestion_apis.policy_api.process_opa_policy', new=opa_mock):
                     jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
@@ -1517,7 +1519,9 @@ class TestRestApi(unittest.TestCase):
                                          json_body=ks_post_resp_json_obj,
                                          response_object=None)
             mock = Mock(return_value=rest_return_obj)
-            opa_mock = Mock(return_value=(True, 'Policy created successfully!'))
+            opa_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=None, response_object=None)
+            opa_mock = Mock(return_value=opa_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
                 with patch('ingestion.ingestion_apis.policy_api.process_opa_policy', new=opa_mock):
                     jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"

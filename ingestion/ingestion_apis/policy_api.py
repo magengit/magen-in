@@ -29,7 +29,7 @@ def known_exceptions(func):
         """Actual Decorator for handling known exceptions"""
         try:
             return func(*args, **kwargs)
-        except (exceptions.RequestException,
+        except (exceptions.RequestException, FileExistsError, FileNotFoundError, EOFError, IndexError,
                 json.JSONDecodeError) as err:
             return handle_specific_exception(err)
         except TypeError as err:
@@ -130,7 +130,7 @@ def base_doc_add_user(asset_id, user):
     get_resp_obj = RestClientApis.http_get_and_check_success(config.OPA_BASE_DOC_URL + opa_filename + '/users')
     if not get_resp_obj.success:
         raise exceptions.InvalidURL(get_resp_obj.message)
-    if user in get_resp_obj.json_body['result']:
+    if get_resp_obj.json_body and user in get_resp_obj.json_body['result']:
         return RestReturn(success=True, message="Already access granted", http_status=HTTPStatus.OK)
     data = [
         {
@@ -157,7 +157,10 @@ def base_doc_revoke_user(asset_id, user):
     get_resp_obj = RestClientApis.http_get_and_check_success(config.OPA_BASE_DOC_URL + opa_filename + '/users')
     if not get_resp_obj.success:
         raise exceptions.InvalidURL(get_resp_obj.message)
+    if user not in get_resp_obj.json_body['result']:
+        raise IndexError
     list_index = get_resp_obj.json_body['result'].index(user)
+    print(list_index)
     data = [
         {
             'op': 'remove',

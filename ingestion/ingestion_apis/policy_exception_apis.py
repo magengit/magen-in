@@ -129,3 +129,15 @@ def file_not_found_error(err):
     rest_return_obj = RestReturn(success=success, message=message,
                                  http_status=http_status, json_body=None, response_object=None)
     return rest_return_obj
+
+
+@handle_specific_exception.register(IndexError)
+def index_error(err):
+    """Handles specific exception requests.exceptions.IndexError"""
+    LOGGER.error('IndexError. Error: %s', err)
+    success = False
+    message = HTTPStatus.BAD_REQUEST.phrase
+    http_status = HTTPStatus.BAD_REQUEST
+    rest_return_obj = RestReturn(success=success, message=message,
+                                 http_status=http_status, json_body=None, response_object=None)
+    return rest_return_obj

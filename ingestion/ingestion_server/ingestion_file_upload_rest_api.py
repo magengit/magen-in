@@ -475,6 +475,13 @@ def create_cipher(asset_id, person, symmetric_key):
         message = 'User ' + person + ' does not exist'
         return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
 
+    # TODO: add receivers to users list in OPA
+    # User added to the list of allowed users in OPA policy
+    policy_resp_obj = policy_api.base_doc_add_user(asset_id, person)
+    if not policy_resp_obj.success:
+        message = 'Failed to grant file access to ' + person
+        return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
+
     # finds the receivers public key file for symmetric key encryption
     user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
     if not user_pubkey.count():
@@ -516,11 +523,10 @@ def file_sharing():
             response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
             return json.dumps(response), HTTPStatus.BAD_REQUEST
 
-        if not revoke_users:
-            # TODO: update the users list in OPA
-            pass
+        if revoke_users:
+            for user in revoke_users:
+                policy_api.base_doc_revoke_user(asset_id, user)
 
-        # TODO: add receivers to users list in OPA
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
             server_urls_instance.key_server_single_asset_url.format(asset_id))
@@ -630,9 +636,9 @@ def delete_files():
                 if not success:
                     resp.append(asset_message)
 
-                opa_resp = policy_api.delete_policy(each_file)
-                if not opa_resp.success:
-                    resp.append("Error" + opa_resp.message)
+                # opa_resp = policy_api.delete_policy(each_file)
+                # if not opa_resp.success:
+                #     resp.append("Error" + opa_resp.message)
                 resp.append(asset_message)
             elif public_file:
                 success, asset_message = delete_asset(each_file)
@@ -677,9 +683,9 @@ def delete_all():
                 if not success:
                     resp.append(asset_message)
 
-                opa_resp = policy_api.delete_policy(each_file.metadata['asset_uuid'])
-                if not opa_resp.success:
-                    resp.append("Error" + opa_resp.message)
+                # opa_resp = policy_api.delete_policy(each_file.metadata['asset_uuid'])
+                # if not opa_resp.success:
+                #     resp.append("Error" + opa_resp.message)
                 resp.append(asset_message)
 
             elif 'type' in each_file.metadata:

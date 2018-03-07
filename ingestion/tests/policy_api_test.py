@@ -1,5 +1,7 @@
 import unittest
 import json
+import subprocess
+import shlex
 
 from http import HTTPStatus
 from unittest.mock import Mock, patch
@@ -12,7 +14,7 @@ from ingestion.tests.magen_env import *
 
 class PolicyApiTest(unittest.TestCase):
 
-    ASSET_ID = '99c7b005-f027-4d6f-bea3-c61dec6e50ec'
+    ASSET_ID = '99c7b005-f027-4d6f-bea3-c61dec6e50ecc'
     OWNER = 'Alice'
 
     @classmethod
@@ -25,7 +27,10 @@ class PolicyApiTest(unittest.TestCase):
         """
         This function prepares the system for running tests
         """
-        pass
+        docker_cli = "docker run -p 8181:8181 openpolicyagent/opa \
+                        run --server --log-level debug"
+        args = shlex.split(docker_cli)
+        p = subprocess.Popen(args)
 
     def tearDown(self):
         opa_filename = 'asset' + ''.join(x for x in PolicyApiTest.ASSET_ID if x.isalnum())
@@ -44,6 +49,7 @@ class PolicyApiTest(unittest.TestCase):
                                                                json.dumps(data))
             self.assertTrue(resp.success)
             self.assertEqual(resp.http_status, HTTPStatus.NO_CONTENT)
+        subprocess.Popen.kill()
 
     def test_process_opa_policy(self):
         """
@@ -105,7 +111,7 @@ class PolicyApiTest(unittest.TestCase):
         """
         try:
             resp = policy_api.base_doc_add_user(PolicyApiTest.ASSET_ID, "Bob")
-            self.assertEqual(resp.http_status, HTTPStatus.BAD_REQUEST)
+            self.assertEqual(resp.http_status, HTTPStatus.NOT_FOUND)
             self.assertFalse(resp.success)
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
@@ -147,9 +153,8 @@ class PolicyApiTest(unittest.TestCase):
         """
         try:
             # Policy creation
-            success, message = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
-            self.assertTrue(success)
-            self.assertIn("Policy created successfully", message)
+            resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
+            self.assertTrue(resp.success)
 
             revoke_resp = policy_api.base_doc_revoke_user(PolicyApiTest.ASSET_ID, 'Bob')
             self.assertEqual(revoke_resp.http_status, HTTPStatus.BAD_REQUEST)
@@ -168,8 +173,8 @@ class PolicyApiTest(unittest.TestCase):
         """
         try:
             # Policy creation
-            success, message = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
-            self.assertTrue(success)
+            resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
+            self.assertTrue(resp.success)
 
             resp = policy_api.base_doc_add_user(PolicyApiTest.ASSET_ID, 'Bob')
             self.assertEqual(resp.http_status, HTTPStatus.NO_CONTENT)
