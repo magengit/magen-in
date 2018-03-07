@@ -103,7 +103,7 @@ def process_opa_policy(asset_id, owner):
     base_doc_resp = RestClientApis.http_put_and_check_success(config.OPA_BASE_DOC_URL + opa_filename, resp.json_body,
                                                               headers={'Content-Type': 'application/json'})
     if base_doc_resp.http_status != HTTPStatus.NO_CONTENT:
-        raise exceptions.HTTPError(base_doc_resp.http_status, ':', base_doc_resp.message)
+        raise exceptions.InvalidURL(base_doc_resp.http_status, ':', base_doc_resp.message)
 
     # Creating policy for OPA
     policy_file = opa_filename + '.rego'
@@ -119,7 +119,7 @@ def process_opa_policy(asset_id, owner):
                                                                 policy_data, headers={'Content-Type': 'text/plain'},
                                                                 params={'file': policy_file_path})
         if policy_resp.http_status != HTTPStatus.OK:
-            raise exceptions.HTTPError(policy_resp .http_status, ':', policy_resp.message)
+            raise exceptions.InvalidURL(policy_resp .http_status, ':', policy_resp.message)
     for filename in glob.glob(IngestionGlobals().data_dir + '/' + opa_filename + '*'):
         os.remove(filename)
     return policy_resp

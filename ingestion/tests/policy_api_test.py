@@ -33,7 +33,6 @@ class PolicyApiTest(unittest.TestCase):
                         run --server --log-level debug"
         args = shlex.split(docker_cli)
         p = subprocess.Popen(args)
-        p.kill()
 
     def tearDown(self):
         opa_filename = 'asset' + ''.join(x for x in PolicyApiTest.ASSET_ID if x.isalnum())
