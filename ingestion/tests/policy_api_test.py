@@ -49,7 +49,7 @@ class PolicyApiTest(unittest.TestCase):
                                                                json.dumps(data))
             self.assertTrue(resp.success)
             self.assertEqual(resp.http_status, HTTPStatus.NO_CONTENT)
-        subprocess.Popen.kill()
+        # subprocess.Popen.kill()
 
     def test_process_opa_policy(self):
         """
