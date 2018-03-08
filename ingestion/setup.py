@@ -37,6 +37,7 @@ setup(
         'magen_mongo>=1.0a1',
         'magen_rest_service>=1.2a4',
         'magen_user>=0.0a6',
+        'docker>=3.1.1',
       ],
     scripts=['ingestion_server/ingestion_server.py'],
     package_dir={'': '..'},

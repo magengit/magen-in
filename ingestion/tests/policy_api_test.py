@@ -1,5 +1,6 @@
 import unittest
 import json
+import docker
 import subprocess
 import shlex
 from requests import exceptions
@@ -10,7 +11,6 @@ from ingestion.ingestion_apis import policy_api
 from ingestion.ingestion_apis import config
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
 from magen_rest_apis.rest_client_apis import RestClientApis
-from magen_rest_apis.rest_client_apis import RestReturn
 from ingestion.tests.magen_env import *
 
 
@@ -24,6 +24,7 @@ class PolicyApiTest(unittest.TestCase):
         cls.ingestion_globals = IngestionGlobals()
         # current_path comes from magen_env
         cls.ingestion_globals.data_dir = current_path
+        cls.client = docker.from_env()
 
     def setUp(self):
         """
@@ -32,7 +33,7 @@ class PolicyApiTest(unittest.TestCase):
         docker_cli = "docker run -p 8181:8181 openpolicyagent/opa \
                         run --server --log-level debug"
         args = shlex.split(docker_cli)
-        p = subprocess.Popen(args)
+        self.p = subprocess.Popen(args)
 
     def tearDown(self):
         opa_filename = 'asset' + ''.join(x for x in PolicyApiTest.ASSET_ID if x.isalnum())
@@ -51,6 +52,7 @@ class PolicyApiTest(unittest.TestCase):
                                                                json.dumps(data))
             self.assertTrue(resp.success)
             self.assertEqual(resp.http_status, HTTPStatus.NO_CONTENT)
+        self.p.kill()
 
     def test_process_opa_policy(self):
         """
