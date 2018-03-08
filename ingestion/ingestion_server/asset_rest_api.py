@@ -350,12 +350,9 @@ def magen_get_asset(asset_uuid):
                         "owner": owner
                     }
                 }
-                print(current_user.get_id())
-                print("owner:", owner)
                 policy = "opa/"+"asset"+''.join(x for x in asset_uuid if x.isalnum())
                 rsp = RestClientApis.http_post_and_check_success(config.OPA_BASE_DOC_URL+policy,
                                                                  json.dumps(input_dict), location=False)
-                print(rsp.to_dict())
                 if rsp.json_body["result"]["allow"] or owner == current_user.get_id():
                     return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
                 else:

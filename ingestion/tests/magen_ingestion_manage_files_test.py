@@ -412,7 +412,7 @@ class TestManageFilesRestApi(unittest.TestCase):
                             'asset_id': share_asset_id, 'users': receivers},
                                                                   headers={'content-type': 'multipart/form-data'})
                         resp_obj = type(self).app.post(jquery_file_share_url, data={
-                            'asset_id': share_asset_id, 'users': receivers, 'revoked_user': 'Sam'},
+                            'asset_id': share_asset_id, 'users': receivers, 'selected_user': 'Sam'},
                                                                   headers={'content-type': 'multipart/form-data'})
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.OK)
                 self.assertEqual(resp_obj.status_code, HTTPStatus.OK)
@@ -436,7 +436,7 @@ class TestManageFilesRestApi(unittest.TestCase):
         """
         This test stimulates the file-sharing of a client with another user. It gets the user and the file to send
         through POST form data.
-        It passes an empty receiver name so the test fails on purpose.
+        It passes an empty asset id so the test fails on purpose.
         """
         print("+++++++++ test_post_file_share_BADREQUEST ++++++++++++")
         server_urls_instance = ServerUrls().get_instance()
@@ -463,7 +463,7 @@ class TestManageFilesRestApi(unittest.TestCase):
                     with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
                                new=patch_mock):
                         jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                        form_data = {'asset_id': share_asset_id}  # empty receiver
+                        form_data = {'asset_id': '', 'users': 'bob'}  # empty asset_id
                         file_share_resp_obj = type(self).app.post(jquery_file_share_url, data=form_data,
                                                                   headers={'content-type': 'multipart/form-data'})
 

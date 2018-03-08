@@ -475,7 +475,6 @@ def create_cipher(asset_id, person, symmetric_key):
         message = 'User ' + person + ' does not exist'
         return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
 
-    # TODO: add receivers to users list in OPA
     # User added to the list of allowed users in OPA policy
     policy_resp_obj = policy_api.base_doc_add_user(asset_id, person)
     if not policy_resp_obj.success:
@@ -519,7 +518,7 @@ def file_sharing():
     response_dict = dict()
     code = HTTPStatus.OK
     try:
-        if not asset_id or not receivers:
+        if not asset_id:
             response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
             return json.dumps(response), HTTPStatus.BAD_REQUEST
 
