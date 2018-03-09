@@ -380,7 +380,7 @@ class TestManageFilesRestApi(unittest.TestCase):
         POST form data.
         It checks if the symmetric key is encrypted correctly for the receivers
         """
-        print("+++++++++ test_post_file_share_Multiple_receivers ++++++++++++")
+        print("+++++++++ test_post_file_share_revoke_users ++++++++++++")
         server_urls_instance = ServerUrls().get_instance()
         file_name = "test_share.txt"
         public_key_file_name = "Bob.pub"
@@ -448,26 +448,12 @@ class TestManageFilesRestApi(unittest.TestCase):
             share_asset_id, delete_url = self.upload_file(file_name)
             key, public_delete_url = self.upload_public_file(public_key_file_name)
 
-            ks_get_resp_json_obj = json.loads(TestManageFilesRestApi.KEY_SERVER_GET_KEY_SERVER_RESP)
-            get_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
-                                             json_body=ks_get_resp_json_obj,
-                                             response_object=None)
-            get_mock = Mock(return_value=get_rest_return_obj)
-            mock_value = Mock(return_value=MongoReturn(count=1))
+            jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+            form_data = {'asset_id': '', 'users': 'bob'}  # empty asset_id
+            file_share_resp_obj = type(self).app.post(jquery_file_share_url, data=form_data,
+                                                      headers={'content-type': 'multipart/form-data'})
 
-            patch_rest_return_obj = RestReturn(success=True, message=HTTPStatus.NO_CONTENT.phrase,
-                                               http_status=HTTPStatus.NO_CONTENT, json_body=None, response_object=None)
-            patch_mock = Mock(return_value=patch_rest_return_obj)
-            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
-                with patch('magen_user_api.user_model.UserModel.select_by_email', new=mock_value):
-                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
-                               new=patch_mock):
-                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
-                        form_data = {'asset_id': '', 'users': 'bob'}  # empty asset_id
-                        file_share_resp_obj = type(self).app.post(jquery_file_share_url, data=form_data,
-                                                                  headers={'content-type': 'multipart/form-data'})
-
-                self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
+            self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
@@ -530,6 +516,59 @@ class TestManageFilesRestApi(unittest.TestCase):
         finally:
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_post_file_share_Fail_NOT_VALID_RECEIVERS(self):
+        """
+        This test stimulates the file-sharing of a client with another user. It gets the user and the file to send through
+        POST form data.
+        It checks if the symmetric key is encrypted correctly for the receivers
+        """
+        print("+++++++++ test_post_file_share_Fail_NOT_VALID_RECEIVERS ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        public_key_file_name = "Bob.pub"
+        delete_url = None
+        public_delete_url = None
+        receivers = 'Bob'
+        try:
+            # upload files
+            share_asset_id, delete_url = self.upload_file(file_name)
+            key, public_delete_url = self.upload_public_file(public_key_file_name)
+
+            ks_get_resp_json_obj = json.loads(TestManageFilesRestApi.KEY_SERVER_GET_KEY_SERVER_RESP)
+            # getting symmetric key from key server to compare
+            ks_key = ks_get_resp_json_obj["response"]["key"]["key"]
+            get_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=ks_get_resp_json_obj, response_object=None)
+            get_mock = Mock(return_value=get_rest_return_obj)
+            mock_value = Mock(return_value=MongoReturn(count=0))
+
+            patch_rest_return_obj = RestReturn(success=True, message=HTTPStatus.NO_CONTENT.phrase,
+                                               http_status=HTTPStatus.NO_CONTENT, json_body=None, response_object=None)
+            patch_mock = Mock(return_value=patch_rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_get_and_check_success', new=get_mock):
+                with patch('magen_user_api.user_model.UserModel.select_by_email', new=mock_value):
+                    with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_patch_and_check_success',
+                               new=patch_mock):
+                        jquery_file_share_url = server_urls_instance.ingestion_server_base_url + "file_share/"
+                        file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
+                            'asset_id': share_asset_id, 'users': receivers},
+                                                                  headers={'content-type': 'multipart/form-data'})
+            self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.INTERNAL_SERVER_ERROR)
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + public_key_file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(public_delete_url)
             type(self).app.delete(delete_url)
 
     def test_post_file_share_Fail_KS_error(self):
@@ -726,6 +765,41 @@ class TestManageFilesRestApi(unittest.TestCase):
             type(self).app.delete(public_delete_url)
             type(self).app.delete(public_delete_url2)
             type(self).app.delete(delete_url)
+
+    def test_manage_files_Retrieve_with_GET(self):
+
+        print("+++++++++ test_manage_files_Retrieve_with_GET ++++++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        file_name1 = "test_share1.txt"
+        delete_url = None
+        delete_url1 = None
+
+        try:
+            # upload files
+            share_asset_id, delete_url = self.upload_file(file_name)
+            share_asset_id1, delete_url1 = self.upload_file(file_name1)
+
+            manage_files_url = server_urls_instance.ingestion_server_base_url + "manage_files/"
+            manage_files_resp_obj = type(self).app.get(manage_files_url)
+
+            self.assertIn(file_name, manage_files_resp_obj.data.decode('utf-8'))
+            self.assertIn(file_name1, manage_files_resp_obj.data.decode('utf-8'))
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name1 + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+            type(self).app.delete(delete_url1)
 
     def test_delete_files(self):
         """
