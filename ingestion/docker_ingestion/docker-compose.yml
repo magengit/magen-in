@@ -30,11 +30,6 @@ services:
     container_name: magen_mongo
     networks:
       - default
-  opa:
-    image: openpolicyagent/opa:0.6.0
-    ports:
-      - 8181:8181
-    command: run --server --log-level=debug
 
 networks:
   default:

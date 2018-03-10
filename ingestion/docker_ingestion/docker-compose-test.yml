@@ -21,4 +21,8 @@ services:
     image: openpolicyagent/opa:0.6.0
     ports:
       - 8181:8181
-    command: run -d -t -p 8181:8181 openpolicyagent/opa run --server --log-level=debug
+    command:
+      - "run"
+      - "--server"
+      - "--log-level=debug"
+
