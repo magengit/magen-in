@@ -17,3 +17,8 @@ services:
   magen_mongo:
     image: mongo:latest
     container_name: magen_mongo
+  opa:
+    image: openpolicyagent/opa:0.6.0
+    ports:
+      - 8181:8181
+    command: run --server --log-level=debug
