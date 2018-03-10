@@ -56,9 +56,8 @@ before_install:
   - sudo chmod +x /usr/local/bin/docker-compose
   - docker-compose -v
 
-#  - docker run -p 8181:8181 openpolicyagent/opa run --server --log-level=debug
   - docker pull openpolicyagent/opa
-  - docker run -d -t -p 8181:8181 openpolicyagent/opa
+  - docker run -d -t -p 8181:8181 openpolicyagent/opa run --server --log-level=debug
   - docker ps -a
 
   - sudo apt-get -qq update
