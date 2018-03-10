@@ -90,6 +90,20 @@ class PolicyApiTest(unittest.TestCase):
             print("Verification Error: {}".format(e))
             self.assertTrue(False)
 
+    def test_process_opa_policy_Fail_CONNECT_TIMEOUT_ERROR(self):
+        """
+        The policy file already exists so the test fails on purpose
+        """
+        try:
+            mock = Mock(side_effect=exceptions.ConnectTimeout)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_put_and_check_success', new=mock):
+                resp = policy_api.process_opa_policy(PolicyApiTest.ASSET_ID, PolicyApiTest.OWNER)
+                self.assertFalse(resp.success)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+
     def test_process_opa_policy_Fail_VALUE_Error(self):
         """
         The policy file already exists so the test fails on purpose

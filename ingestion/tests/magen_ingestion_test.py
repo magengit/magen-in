@@ -596,6 +596,84 @@ class TestRestApi(unittest.TestCase):
                 os.remove(filename)
             type(self).app.delete(server_urls_instance.ingestion_server_single_asset_url.format(asset_uuid))
 
+    def test_UploadFile_v2_Mock_Fail_BADREQUEST(self):
+        """
+        Uploads file and checks if it was ingested correctly. It mocks KeyServer response so
+        it will work in unit test environment
+        It passes the wrong key name so the test will fail on purpose
+        """
+        print("+++++++++ UploadFile_v2_Mock_Fail_BADREQUEST Test +++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.txt"
+        src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        asset_uuid = None
+        try:
+            magen_file = open(src_file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # files instead of the correct file
+            files = {'files': (src_file_full_path, 'test_up.txt')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            # key = base64.b64decode(ks_post_resp_json_obj["response"]["key"])
+            key = ks_post_resp_json_obj["response"]["key"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            # "http://localhost:5020/magen/ingestion/v2/upload/"
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(post_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(server_urls_instance.ingestion_server_single_asset_url.format(asset_uuid))
+
+    def test_UploadFile_v2_Mock_Fail_INDEX_ERROR(self):
+        """
+        Uploads file and checks if it was ingested correctly. It mocks KeyServer response so
+        it will work in unit test environment
+        It passes the wrong key name so the test will fail on purpose
+        """
+        print("+++++++++ UploadFile_v2_Mock_Fail_INDEX_ERROR Test +++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.txt"
+        src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        asset_uuid = None
+        try:
+            magen_file = open(src_file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # files instead of the correct file
+            files = {'file': (src_file_full_path, 'test_up.txt')}
+            mock = Mock(side_effect=IndexError)
+            # "http://localhost:5020/magen/ingestion/v2/upload/"
+            with patch('ingestion.ingestion_apis.asset_creation_api.AssetCreationApi.process_asset', new=mock):
+                post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(post_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+
     @unittest.expectedFailure
     def test_Create_Asset_with_File_URL(self):
         """

@@ -58,9 +58,8 @@ before_install:
 
 #  - docker run -p 8181:8181 openpolicyagent/opa run --server --log-level=debug
   - docker pull openpolicyagent/opa
-  - docker run -d -p 127.0.0.1:8181:8181 openpolicyagent/opa /bin/sh -c "cd /root/opa; bundle exec foreman start;"
+  - docker run -d -t -p 8181:8181 openpolicyagent/opa
   - docker ps -a
-  - docker run openpolicyagent/opa /bin/sh -c "cd /root/opa; bundle exec rake test"
 
   - sudo apt-get -qq update
   - pip3 install twine
