@@ -14,6 +14,7 @@ from Crypto.PublicKey import RSA
 from ingestion.ingestion_apis.asset_db_api import AssetDbApi
 from ingestion.ingestion_apis.container_api import ContainerApi
 from ingestion.ingestion_apis.encryption_api import EncryptionApi
+from ingestion.ingestion_apis import policy_api
 from magen_rest_apis.rest_client_apis import RestClientApis
 from magen_rest_apis.server_urls import ServerUrls
 from werkzeug.utils import secure_filename
@@ -296,7 +297,9 @@ def file_upload():
                     metadata = {"owner": owner, "group": "users",
                                 "container_name": os.path.split(html_container_path)[1],
                                 "asset_uuid": asset_dict["uuid"]}
-
+                    opa_resp = policy_api.process_opa_policy(asset_dict["uuid"], owner)
+                    if not opa_resp.success:
+                        raise Exception(opa_resp.message)
                 else:
                     raise Exception("Key Server problem")
             else:
@@ -446,7 +449,12 @@ def file_share():
         flash('Can Share only one file at a time')
         return redirect(url_for('ingestion_file_upload.manage_files'))
 
-    return render_template('share.html', asset_id=files_list[0])
+    success, message = policy_api.display_allowed_users(files_list[0])
+    if not success:
+        flash(message)
+        return redirect(url_for('ingestion_file_upload.manage_files'))
+
+    return render_template('share.html', asset_id=files_list[0], revoke_users=message)
 
 
 def create_cipher(asset_id, person, symmetric_key):
@@ -465,6 +473,12 @@ def create_cipher(asset_id, person, symmetric_key):
     # Checking if the person exists or not
     if not result.count:
         message = 'User ' + person + ' does not exist'
+        return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
+
+    # User added to the list of allowed users in OPA policy
+    policy_resp_obj = policy_api.base_doc_add_user(asset_id, person)
+    if not policy_resp_obj.success:
+        message = 'Failed to grant file access to ' + person
         return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
 
     # finds the receivers public key file for symmetric key encryption
@@ -504,15 +518,14 @@ def file_sharing():
     response_dict = dict()
     code = HTTPStatus.OK
     try:
-        if not asset_id or not receivers:
+        if not asset_id:
             response = build_file_share_error_response(asset_id, HTTPStatus.BAD_REQUEST.phrase)
             return json.dumps(response), HTTPStatus.BAD_REQUEST
 
-        if not revoke_users:
-            # TODO: update the users list in OPA
-            pass
+        if revoke_users:
+            for user in revoke_users:
+                policy_api.base_doc_revoke_user(asset_id, user)
 
-        # TODO: add receivers to users list in OPA
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
             server_urls_instance.key_server_single_asset_url.format(asset_id))
@@ -621,6 +634,10 @@ def delete_files():
                 success, asset_message = delete_asset(each_file)
                 if not success:
                     resp.append(asset_message)
+
+                opa_resp = policy_api.delete_policy(each_file)
+                if not opa_resp.success:
+                    resp.append("Error" + opa_resp.message)
                 resp.append(asset_message)
             elif public_file:
                 success, asset_message = delete_asset(each_file)
@@ -664,6 +681,10 @@ def delete_all():
                 success, asset_message = delete_asset(each_file.metadata['asset_uuid'])
                 if not success:
                     resp.append(asset_message)
+
+                opa_resp = policy_api.delete_policy(each_file.metadata['asset_uuid'])
+                if not opa_resp.success:
+                    resp.append("Error" + opa_resp.message)
                 resp.append(asset_message)
 
             elif 'type' in each_file.metadata:

@@ -27,6 +27,7 @@ from magen_utils_apis.datetime_api import SimpleUtc
 
 from ingestion.ingestion_apis.container_api import ContainerApi
 from ingestion.ingestion_apis.encryption_api import EncryptionApi
+from ingestion.ingestion_apis.asset_db_api import AssetDbApi
 from magen_datastore_apis.main_db import MainDb
 from magen_mongo_apis.mongo_core_database import MongoCore
 
@@ -74,6 +75,20 @@ class TestRestApi(unittest.TestCase):
       "title": "create new key"
     }
     """
+    OPA_SERVER_POLICY_RESP = """
+    {
+      "result": {
+        "allow": "True"
+      }
+    }          
+    """
+    OPA_SERVER_POLICY_FAIL_RESP = """
+        {
+          "result": {
+            "allow": "False"
+          }
+        }          
+        """
 
     @classmethod
     def setUpClass(cls):
@@ -580,6 +595,84 @@ class TestRestApi(unittest.TestCase):
             for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
                 os.remove(filename)
             type(self).app.delete(server_urls_instance.ingestion_server_single_asset_url.format(asset_uuid))
+
+    def test_UploadFile_v2_Mock_Fail_BADREQUEST(self):
+        """
+        Uploads file and checks if it was ingested correctly. It mocks KeyServer response so
+        it will work in unit test environment
+        It passes the wrong key name so the test will fail on purpose
+        """
+        print("+++++++++ UploadFile_v2_Mock_Fail_BADREQUEST Test +++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.txt"
+        src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        asset_uuid = None
+        try:
+            magen_file = open(src_file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # files instead of the correct file
+            files = {'files': (src_file_full_path, 'test_up.txt')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            # key = base64.b64decode(ks_post_resp_json_obj["response"]["key"])
+            key = ks_post_resp_json_obj["response"]["key"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            # "http://localhost:5020/magen/ingestion/v2/upload/"
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(post_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except (KeyError, IndexError) as e:
+            print("Decoding error: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(server_urls_instance.ingestion_server_single_asset_url.format(asset_uuid))
+
+    def test_UploadFile_v2_Mock_Fail_INDEX_ERROR(self):
+        """
+        Uploads file and checks if it was ingested correctly. It mocks KeyServer response so
+        it will work in unit test environment
+        It passes the wrong key name so the test will fail on purpose
+        """
+        print("+++++++++ UploadFile_v2_Mock_Fail_INDEX_ERROR Test +++++++++")
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_up.txt"
+        src_file_full_path = os.path.join(type(self).ingestion_globals.data_dir, file_name)
+        asset_uuid = None
+        try:
+            magen_file = open(src_file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            # files instead of the correct file
+            files = {'file': (src_file_full_path, 'test_up.txt')}
+            mock = Mock(side_effect=IndexError)
+            # "http://localhost:5020/magen/ingestion/v2/upload/"
+            with patch('ingestion.ingestion_apis.asset_creation_api.AssetCreationApi.process_asset', new=mock):
+                post_resp_obj = type(self).app.post(server_urls_instance.ingestion_server_upload_url, data=files,
+                                                    headers={'content-type': 'multipart/form-data'})
+                self.assertEqual(post_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
 
     @unittest.expectedFailure
     def test_Create_Asset_with_File_URL(self):
@@ -1242,13 +1335,17 @@ class TestRestApi(unittest.TestCase):
                                          json_body=ks_post_resp_json_obj,
                                          response_object=None)
             mock = Mock(return_value=rest_return_obj)
+            opa_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=None, response_object=None)
+            opa_mock = Mock(return_value=opa_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
-                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
-                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
-                                                    headers={'content-type': 'multipart/form-data'})
-                self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
-                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
-                delete_url = post_resp_json_obj["files"][0]["url"]
+                with patch('ingestion.ingestion_apis.policy_api.process_opa_policy', new=opa_mock):
+                    jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                    post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                        headers={'content-type': 'multipart/form-data'})
+                    self.assertEqual(post_resp_obj.status_code, HTTPStatus.OK)
+                    post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                    delete_url = post_resp_json_obj["files"][0]["url"]
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
@@ -1501,13 +1598,23 @@ class TestRestApi(unittest.TestCase):
                                          json_body=ks_post_resp_json_obj,
                                          response_object=None)
             mock = Mock(return_value=rest_return_obj)
+            opa_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=None, response_object=None)
+            opa_mock = Mock(return_value=opa_rest_return_obj)
             with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
-                jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
-                post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
-                                                    headers={'content-type': 'multipart/form-data'})
-                post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
-                delete_url = post_resp_json_obj["files"][0]["deleteUrl"]
-                get_url = post_resp_json_obj["files"][0]["url"]
+                with patch('ingestion.ingestion_apis.policy_api.process_opa_policy', new=opa_mock):
+                    jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                    post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                        headers={'content-type': 'multipart/form-data'})
+                    post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                    delete_url = post_resp_json_obj["files"][0]["deleteUrl"]
+                    get_url = post_resp_json_obj["files"][0]["url"]
+
+            opa_post_resp_json_obj = json.loads(TestRestApi.OPA_SERVER_POLICY_RESP)
+            opa_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=opa_post_resp_json_obj, response_object=None)
+            new_mock = Mock(return_value=opa_rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=new_mock):
                 get_resp_obj = type(self).app.get(get_url)
                 container_file_path = file_full_path + ".html"
                 with open(container_file_path, "wb+") as container_f:
@@ -1522,6 +1629,114 @@ class TestRestApi(unittest.TestCase):
                 self.assertIsNotNone(out_file_path)
                 with open(out_file_path, "rb") as f:
                     self.assertEqual(f.read(), "this is a test".encode("utf-8"))
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_JQuery_Upload_PublicFile_Retrieve_with_GET(self):
+        """
+        Uploads a Public key file, retrieves the file from the url found in the POST Response and compare with
+        original file
+        """
+        print("++++++++++ test_JQuery_UploadPublicFile_Retrieve_with_GET +++++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.pub"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        fs = gridfs.GridFSBucket(type(self).db.core_database.get_magen_mdb())
+        delete_url = None
+        get_url = None
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+
+            jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+            post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                headers={'content-type': 'multipart/form-data'})
+            post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+            delete_url = post_resp_json_obj["files"][0]["deleteUrl"]
+            get_url = post_resp_json_obj["files"][0]["url"]
+
+            get_resp_obj = type(self).app.get(get_url)
+            self.assertEqual(get_resp_obj.data, "this is a test".encode("utf-8"))
+
+        except (OSError, IOError) as e:
+            print("Failed to open file: {}".format(e))
+            self.assertTrue(False)
+
+        except Exception as e:
+            print("Verification Error: {}".format(e))
+            self.assertTrue(False)
+        finally:
+            for filename in glob.glob(IngestionGlobals().data_dir + "/" + file_name + "*"):
+                os.remove(filename)
+            type(self).app.delete(delete_url)
+
+    def test_JQuery_UploadFile_with_Mock_KS_Fail_Retrieve_with_GET(self):
+        """
+        Uploads a file, retrieves the file from the url found in the POST Response, decrypt and compare with
+        original file
+        """
+        print("++++++++++ test_JQuery_UploadFile_with_Mock_KS_Fail_Retrieve_with_GET +++++++++++")
+
+        server_urls_instance = ServerUrls().get_instance()
+        file_name = "test_share.txt"
+        base_path = type(self).ingestion_globals.data_dir
+        file_full_path = os.path.join(base_path, file_name)
+        fs = gridfs.GridFSBucket(type(self).db.core_database.get_magen_mdb())
+        delete_url = None
+        get_url = None
+        try:
+            # upload a file
+            magen_file = open(file_full_path, 'w+')
+            magen_file.write("this is a test")
+            magen_file.close()
+            files = {'files[]': (file_full_path, file_name, 'text/plain')}
+            ks_post_resp_json_obj = json.loads(TestRestApi.KEY_SERVER_POST_KEY_CREATION_RESP)
+            key = ks_post_resp_json_obj["response"]["key"]
+            rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                         json_body=ks_post_resp_json_obj,
+                                         response_object=None)
+            mock = Mock(return_value=rest_return_obj)
+            opa_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=None, response_object=None)
+            opa_mock = Mock(return_value=opa_rest_return_obj)
+            with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=mock):
+                with patch('ingestion.ingestion_apis.policy_api.process_opa_policy', new=opa_mock):
+                    jquery_file_upload_url = server_urls_instance.ingestion_server_base_url + "file_upload/"
+                    post_resp_obj = type(self).app.post(jquery_file_upload_url, data=files,
+                                                        headers={'content-type': 'multipart/form-data'})
+                    post_resp_json_obj = json.loads(post_resp_obj.data.decode("utf-8"))
+                    delete_url = post_resp_json_obj["files"][0]["deleteUrl"]
+                    get_url = post_resp_json_obj["files"][0]["url"]
+
+            asset_id = delete_url.split('/')[-2]
+
+            docs = [{'file_size': 265, 'file_name': file_name, 'uuid': asset_id,
+                     'creation_timestamp': '2018-03-08T19:51:13.573000+00:00', 'version': 1}]
+            mock = Mock(return_value=(True, docs, 'Asset found'))
+
+            opa_post_resp_json_obj = json.loads(TestRestApi.OPA_SERVER_POLICY_RESP)
+            opa_rest_return_obj = RestReturn(success=True, message=HTTPStatus.OK.phrase, http_status=HTTPStatus.OK,
+                                             json_body=opa_post_resp_json_obj, response_object=None)
+            new_mock = Mock(return_value=opa_rest_return_obj)
+            with patch('ingestion.ingestion_apis.asset_db_api.AssetDbApi.get_asset', new=mock):
+                with patch('magen_rest_apis.rest_client_apis.RestClientApis.http_post_and_check_success', new=new_mock):
+                    get_resp_obj = type(self).app.get(get_url)
+                    self.assertEqual(get_resp_obj.status_code, HTTPStatus.NOT_FOUND)
 
         except (OSError, IOError) as e:
             print("Failed to open file: {}".format(e))
