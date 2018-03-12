@@ -90,7 +90,10 @@ function toggle(source) {
                 {% for value in data %}
                 {% if value %}
                 <li><input type="checkbox" name="file" value="{{value.metadata.asset_uuid}}">
-                    <span>{{ value.filename}}</span>
+                    <span>{{ value.filename}}</span> &nbsp; &nbsp; &nbsp;
+                    <span> {{ value.uploadDate }}</span>  &nbsp; &nbsp; &nbsp;
+                    <span> {{ value.filename.split('.')[-1] }}</span>  &nbsp; &nbsp; &nbsp;
+                    <span> {{ value.length }}</span>
                 </li>
                 {%  endif %}
                 {% endfor %}

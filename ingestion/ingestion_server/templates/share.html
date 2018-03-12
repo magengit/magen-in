@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
 
     <!-- Custom styles for this template -->
-  <link rel="stylesheet" href= "starter-template.css" type="text/css" />
+  <link rel="stylesheet" href= "{{ url_for('static',filename='css/starter-template.css') }}"  type="text/css" />
     <link href="https://fonts.googleapis.com/css?family=Cabin:400,400i,500,500i,600,600i,700,700i" rel="stylesheet">
   </head>
 
@@ -66,13 +66,17 @@
 
 
       <form method="POST">
-          <div class="shareform">Asset ID: </div><input class="shareinput" type="text" name="asset_id" placeholder="Asset_id" size="30">
+          <div class="shareform">Asset ID: </div><input class="shareinput" type="text" name="asset_id" value="{{ asset_id }}" size="30">
           <div class="shareform">Share with Users: </div><input class="shareinput" type="text" name="users" placeholder="Enter users separated by comma" size="30">
           <br><div class="shareaccess">Revoke Access to Users:</div>
               <select name="selected_user" multiple class="form-control" id="select_user">
-                  <option value="Bob">Bob</option>
-                  <option value="John">John</option>
-                  <option value="Carl">Carl</option>
+                  {% if revoke_users %}
+                    {% for user in revoke_users %}
+                        {% if user %}
+                            <option value="{{ user }}">{{ user }}</option>
+                        {% endif %}
+                    {% endfor %}
+                  {% endif %}
               </select>
           <input class="loginbutton" type="submit" formaction="/magen/ingestion/v2/file_share/" value="Update">
       </form>
