@@ -56,6 +56,10 @@ before_install:
   - sudo chmod +x /usr/local/bin/docker-compose
   - docker-compose -v
 
+  - docker pull openpolicyagent/opa
+  - docker run -d -t -p 8181:8181 openpolicyagent/opa run --server --log-level=debug
+  - docker ps -a
+
   - sudo apt-get -qq update
   - pip3 install twine
   - pip3 install codecov

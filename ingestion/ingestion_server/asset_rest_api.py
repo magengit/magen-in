@@ -6,6 +6,7 @@ from http import HTTPStatus
 
 import gridfs
 from flask import request, Blueprint, send_file
+from flask_login import current_user
 from magen_datastore_apis.main_db import MainDb
 from magen_logger.logger_config import LogDefaults
 from magen_rest_apis.rest_client_apis import RestClientApis
@@ -19,6 +20,7 @@ from ingestion.ingestion_apis.asset_db_api import AssetDbApi
 from ingestion.ingestion_apis.container_api import ContainerApi
 from ingestion.ingestion_server.ingestion_globals import IngestionGlobals
 from ingestion.ingestion_server.ingestion_rest_api_v2 import ingestion_bp_v2
+from ingestion.ingestion_apis import config
 
 project_root = os.path.dirname(__file__)
 template_path = os.path.join(project_root, 'templates')
@@ -336,7 +338,28 @@ def magen_get_asset(asset_uuid):
             magen_temp_file = tempfile.TemporaryFile()
             fs.download_to_stream_by_name(documents[0]["file_name"], magen_temp_file)
             magen_temp_file.seek(0, 0)
-            return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
+
+            ext = documents[0]["file_name"].split('.')[1]
+            if ext != 'pub':
+                owner = gridfs.GridFS(db_core.get_magen_mdb()).get(grid_fid).metadata['owner']
+                input_dict = {  # create input to hand to OPA
+                    "input": {
+                        "user": current_user.get_id(),
+                        "path": request.url,
+                        "asset": asset_uuid,
+                        "owner": owner
+                    }
+                }
+                policy = "opa/"+"asset"+''.join(x for x in asset_uuid if x.isalnum())
+                rsp = RestClientApis.http_post_and_check_success(config.OPA_BASE_DOC_URL+policy,
+                                                                 json.dumps(input_dict), location=False)
+                if rsp.json_body["result"]["allow"] or owner == current_user.get_id():
+                    return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
+                else:
+                    return RestServerApis.respond(HTTPStatus.FORBIDDEN, "Not Allowed",
+                                                  {"cause": "No Permission to Download the file"})
+            else:
+                return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
         else:
             logger.error("GridFS ID not found in asset document: %s", asset_uuid)
             msg = "Asset not found"
