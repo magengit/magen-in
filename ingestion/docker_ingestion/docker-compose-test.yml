@@ -10,6 +10,7 @@ services:
       - ../..:/opt/server
     links:
       - magen_mongo:magen_mongo
+      - magen_opa:magen_opa
     depends_on:
       - magen_mongo
     environment:
