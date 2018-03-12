@@ -528,7 +528,6 @@ def file_sharing():
             for user in revoke_users:
                 policy_api.base_doc_revoke_user(asset_id, user)
 
-        # TODO: add receivers to users list in OPA
         server_urls_instance = ServerUrls().get_instance()
         get_return_obj = RestClientApis.http_get_and_check_success(
             server_urls_instance.key_server_single_asset_url.format(asset_id))
@@ -637,11 +636,11 @@ def delete_files():
                 success, asset_message = delete_asset(each_file)
                 if not success:
                     resp.append(asset_message)
-                resp.append(asset_message)
 
-                opa_resp = policy_api.delete_policy(each_file)
-                if not opa_resp.success:
-                    resp.append("Error" + opa_resp.message)
+                # opa_resp = policy_api.delete_policy(each_file)
+                # if not opa_resp.success:
+                #     resp.append("Error" + opa_resp.message)
+                resp.append(asset_message)
             elif public_file:
                 success, asset_message = delete_asset(each_file)
                 if not success:
@@ -684,11 +683,11 @@ def delete_all():
                 success, asset_message = delete_asset(each_file.metadata['asset_uuid'])
                 if not success:
                     resp.append(asset_message)
-                resp.append(asset_message)
 
-                opa_resp = policy_api.delete_policy(each_file.metadata['asset_uuid'])
-                if not opa_resp.success:
-                    resp.append("Error" + opa_resp.message)
+                # opa_resp = policy_api.delete_policy(each_file.metadata['asset_uuid'])
+                # if not opa_resp.success:
+                #     resp.append("Error" + opa_resp.message)
+                resp.append(asset_message)
 
             elif 'type' in each_file.metadata:
                 success, asset_message = delete_asset(each_file.metadata['asset_uuid'])

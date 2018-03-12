@@ -213,3 +213,4 @@ def delete_policy(asset_id):
     if not resp.success:
         raise FileNotFoundError(resp.message)
     return resp
+
