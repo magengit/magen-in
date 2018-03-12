@@ -18,9 +18,10 @@ services:
     image: mongo:latest
     container_name: magen_mongo
   opa:
-    image: openpolicyagent/opa:0.6.0
+    image: openpolicyagent/opa:latest
+    container_name: magen_opa
     ports:
-      - 8181:8181
+      - "8181:8181"
     command:
       - "run"
       - "--server"
