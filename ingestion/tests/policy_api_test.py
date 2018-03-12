@@ -1,8 +1,5 @@
 import unittest
 import json
-import docker
-import subprocess
-import shlex
 from requests import exceptions
 
 from http import HTTPStatus
