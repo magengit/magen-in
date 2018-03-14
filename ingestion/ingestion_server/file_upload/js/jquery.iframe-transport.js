@@ -198,6 +198,7 @@
     // application/xml or text/xml, so IE properly parses the XML response.
     // See also
     // https://github.com/blueimp/jQuery-File-Upload/wiki/Setup#content-type-negotiation
+    var csrf_token = "{{ csrf_token() }}";
     $.ajaxSetup({
         converters: {
             'iframe text': function (iframe) {
@@ -218,6 +219,9 @@
             'iframe script': function (iframe) {
                 return iframe && $.globalEval($(iframe[0].body).text());
             }
+        },
+        headers: {
+            'X-CSRFToken': $.cookie("X-CSRFToken")
         }
     });
 

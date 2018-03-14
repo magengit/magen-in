@@ -468,12 +468,12 @@ def create_cipher(asset_id, person, symmetric_key):
     db_core = MainDb.get_core_db_instance()
     fs = gridfs.GridFSBucket(db_core.get_magen_mdb())
 
-    with db.connect(config.DEV_DB_NAME) as db_instance:
-        result = user_model.UserModel.select_by_email(db_instance, person)
-    # Checking if the person exists or not
-    if not result.count:
-        message = 'User ' + person + ' does not exist'
-        return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
+    # with db.connect(config.DEV_DB_NAME) as db_instance:
+    #     result = user_model.UserModel.select_by_email(db_instance, person)
+    # # Checking if the person exists or not
+    # if not result.count:
+    #     message = 'User ' + person + ' does not exist'
+    #     return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
 
     # User added to the list of allowed users in OPA policy
     policy_resp_obj = policy_api.base_doc_add_user(asset_id, person)
