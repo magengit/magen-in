@@ -481,6 +481,12 @@ def create_cipher(asset_id, person, symmetric_key):
         message = 'Failed to grant file access to ' + person
         return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
 
+    # User added to the list of allowed users in OPA policy
+    policy_resp_obj = policy_api.base_doc_add_user(asset_id, person)
+    if not policy_resp_obj.success:
+        message = 'Failed to grant file access to ' + person
+        return build_file_share_error_response(asset_id, message), HTTPStatus.INTERNAL_SERVER_ERROR
+
     # finds the receivers public key file for symmetric key encryption
     user_pubkey = fs.find({'metadata.owner': person, 'metadata.type': 'public key'})
     if not user_pubkey.count():
