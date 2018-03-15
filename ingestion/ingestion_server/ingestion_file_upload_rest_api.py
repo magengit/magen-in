@@ -300,6 +300,7 @@ def file_upload():
                     opa_resp = policy_api.process_opa_policy(asset_dict["uuid"], owner)
                     if not opa_resp.success:
                         raise Exception(opa_resp.message)
+
                 else:
                     raise Exception("Key Server problem")
             else:
@@ -547,7 +548,8 @@ def file_sharing():
             if status != HTTPStatus.OK:
                 code = status
 
-        resp = json.dumps(response_dict)
+        home_redirect = "<input type='submit' formaction='/' value='Home'><br><br>"
+        resp = home_redirect + json.dumps(response_dict)
         return resp, code
 
     except (KeyError, IndexError, BadRequest) as e:

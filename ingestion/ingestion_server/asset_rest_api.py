@@ -5,7 +5,7 @@ import tempfile
 from http import HTTPStatus
 
 import gridfs
-from flask import request, Blueprint, send_file
+from flask import request, Blueprint, send_file, render_template
 from flask_login import current_user
 from magen_datastore_apis.main_db import MainDb
 from magen_logger.logger_config import LogDefaults
@@ -356,8 +356,9 @@ def magen_get_asset(asset_uuid):
                 if rsp.json_body["result"]["allow"] or owner == current_user.get_id():
                     return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
                 else:
-                    return RestServerApis.respond(HTTPStatus.FORBIDDEN, "Not Allowed",
-                                                  {"cause": "No Permission to Download the file"})
+                    return render_template('response.html', message='No Permission to Download the file')
+                    # RestServerApis.respond(HTTPStatus.FORBIDDEN, "Not Allowed",
+                    #                               {"cause": "No Permission to Download the file"})
             else:
                 return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
         else:

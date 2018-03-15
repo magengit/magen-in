@@ -3,6 +3,7 @@ import os
 import json
 import simplejson
 import glob
+import requests
 from http import HTTPStatus
 from requests import exceptions
 
@@ -13,6 +14,7 @@ from magen_logger.logger_config import LogDefaults
 from magen_rest_apis.server_urls import ServerUrls
 from magen_rest_apis.rest_client_apis import RestClientApis
 from magen_rest_apis.rest_return_api import RestReturn
+
 
 logger = logging.getLogger(LogDefaults.default_log_name)
 
@@ -94,6 +96,8 @@ def process_opa_policy(asset_id, owner):
     :return: True/False with message
     """
     # TODO resolve concurrent user requests
+
+    r = requests.get(config.OPA_BASE_DOC_URL)
     opa_filename = 'asset' + ''.join(x for x in asset_id if x.isalnum())
     # Creating base document for OPA
     resp = create_base_document(asset_id, owner)
