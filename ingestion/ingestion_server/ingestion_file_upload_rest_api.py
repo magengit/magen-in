@@ -549,7 +549,7 @@ def file_sharing():
                 code = status
 
         home_redirect = "<input type='submit' formaction='/' value='Home'><br><br>"
-        resp = home_redirect + json.dumps(response_dict)
+        resp = json.dumps(response_dict)
         return resp, code
 
     except (KeyError, IndexError, BadRequest) as e:

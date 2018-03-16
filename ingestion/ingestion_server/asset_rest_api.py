@@ -355,8 +355,10 @@ def magen_get_asset(asset_uuid):
                                                                  json.dumps(input_dict), location=False)
                 if rsp.json_body["result"]["allow"] or owner == current_user.get_id():
                     return send_file(magen_temp_file, as_attachment=True, attachment_filename=documents[0]["file_name"])
+
                 else:
-                    return render_template('response.html', message='No Permission to Download the file')
+                    return render_template('response.html', status='FORBIDDEN',
+                                           message='No Permission to Download the file')
                     # RestServerApis.respond(HTTPStatus.FORBIDDEN, "Not Allowed",
                     #                               {"cause": "No Permission to Download the file"})
             else:
