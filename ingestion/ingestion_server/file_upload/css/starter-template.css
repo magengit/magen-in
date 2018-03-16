@@ -1,6 +1,5 @@
 body {
   position:relative;
-  font-size: 16px;
 }
 .starter-template {
   padding: 3rem 1.5rem;
@@ -106,7 +105,9 @@ font-family:cabin;
 
 
 .btn{
-  background-color:#456FB2;
+    background-color: #456FB2;
+    font-family: cabin;
+    
   
 }
 .navbar-inverse .navbar-nav .nav-link{
@@ -121,6 +122,7 @@ font-family:cabin;
 
 .sectionbg{
   background-color:#FFCA5E;
+  margin-top:-1px;
 }
 
 
@@ -151,8 +153,7 @@ font-family:cabin;
   z-index: -1;
   top:-200px;
   left: 50%;
-  width:100vw
-  
+  width:101vw;  
 }
 .text-margin{
   padding: 36px;
@@ -290,6 +291,8 @@ font-family:cabin;
 
 #menu-toggle {
     text-decoration: none;
+    background-color: #fff;
+    color: black;
 }
 
 .btn-menu {
@@ -657,8 +660,8 @@ font-family: FontAwesome;
 }
 .btn-primary {
     color: #fff;
-    background-color: #2196f3 !important;
-}
+    background-color: #2196f3;
+  }
 .sharepanel{
     background: #FFFFFF;
     border-radius: 3px;
@@ -670,8 +673,8 @@ font-family: FontAwesome;
     margin-top: 50px;
     margin-right: 13px;
     font-family:cabin;
-    font-weight: 500;
-    font-size:14px;
+    font-weight: 400;
+    font-size:16px;
 }
 .flashes1{
     margin-top: 45px;
@@ -700,18 +703,18 @@ img-fluid1{
   max-width:100%;
   width: auto;
 }
-ul :hover .manageicon path {
+.sidebarhover :hover .manageicon path {
     fill: #3080FF;
     text-decoration: none;
 }
 
-nav ul {
+.sidebar .sidebarhover {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-nav {
+.sidebar {
   float: left;
   height:100%;
    position: fixed;
@@ -727,7 +730,7 @@ nav {
     min-width: 200px;
 }
 
-nav .navlink {
+.sidebar .navlink {
     background: #fff;
     color: #000;
     position: relative;
@@ -742,7 +745,7 @@ nav .navlink {
 
 
 
-nav .navlink:hover:after{
+.sidebar .navlink:hover:after{
   content: "";
   display: block;
   border:  18px dashed #3080FF;
@@ -761,11 +764,37 @@ nav .navlink:hover:after{
     display: inline-block;
    vertical-align: middle;
 }
-nav form{
+.sidebar form{
     display: block;
     position: absolute;
     padding: 0px 0px 0px 55px;
 }
+.card-header {
+    padding: 0.5rem 1.25rem;
+    margin-bottom: 0;
+    background-color: #456FB2 !important;
+    border-bottom: 1px solid rgba(0,0,0,.125);
+    color: white !important;
+    font-family: cabin !important;
+    font-weight: 700 !important;
+
+}
+.card-body {
+    -webkit-box-flex: 1;
+    -ms-flex: 1 1 auto;
+    flex: 1 1 auto;
+    padding: 1.25rem;
+    font-family: cabin !important;
+    font-weight:400;
+
+}
+.dropdown-item:focus,.dropdown-item:hover {
+    color: #fff;
+    text-decoration: none;
+    background-color: #0275d8
+}
+
+
 #webwrapper{
   margin-right: auto;
   margin-left: auto;
@@ -802,7 +831,13 @@ nav form{
 .inset {
   padding: 15px;
 }
-
+.container {
+    max-width: 500px !important;
 
 }
 
+@media (min-width: 992px){}
+.container {
+    max-width: 750px !important;
+}
+}
