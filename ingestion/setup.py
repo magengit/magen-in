@@ -35,7 +35,7 @@ setup(
         'magen_logger>=1.0a1',
         'magen_utils>=1.2a2',
         'magen_mongo>=1.0a1',
-        'magen_rest_service>=1.2a4',
+        'magen_rest_service>=1.3a6',
         'magen_user>=0.0a6',
       ],
     scripts=['ingestion_server/ingestion_server.py'],
