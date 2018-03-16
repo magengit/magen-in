@@ -549,7 +549,7 @@ def file_sharing():
                 code = status
 
         resp = json.dumps(response_dict)
-        return render_template('response.html', message=str(resp), status=code), code
+        return render_template('response.html', message=resp, status=code), code
 
     except (KeyError, IndexError, BadRequest) as e:
         message = str(e)
@@ -560,7 +560,7 @@ def file_sharing():
         message = str(e)
         response = build_file_share_error_response(asset_id, message)
         return render_template('response.html', message=json.dumps(response), status=HTTPStatus.INTERNAL_SERVER_ERROR), \
-               HTTPStatus.INTERNAL_SERVER_ERROR
+            HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @ingestion_file_upload_bp.route('/manage_files/', methods=["GET"])
