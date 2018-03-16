@@ -46,24 +46,16 @@
   </nav>
   <div class="content-wrapper">
   <div class="container">
-
-
-    <div class="sharetitle">
-      Magen Local Agent (Demo version 0.1)
-
+<div class="row">
+  <div class="col-sm-6">
+    <div class="card">
+        <h6 class="card-header">{{ status }}!!!</h6>
+        <div class="card-body">
+        <p class="card-text">{{ message }}</p>  
+      </div>
     </div>
+  </div>
 
-    <div class="shareinfo">
-
-      Magen Agent represent a native local Agent that performs Encryption and Decryption Data
-      that will be stored in a Cloud Application (Box, Dropbox, GoogleDrive).
-      Magen Agent showcases an ability to share an encrypted file between User1 and User2.
-      User2 receives an encrypted file and attempts to open it. If access is granted, file is decrypted.
-      If no decrypt operation performed, the User unable to open a file.
-
-    </div>
-      <h3>{{ status }}!!!</h3>
-      <h4>{{ message }}</h4>
 
   </div>
 </div>

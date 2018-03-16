@@ -245,8 +245,10 @@ class TestManageFilesRestApi(unittest.TestCase):
                         file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
                             'asset_id': share_asset_id, 'users': receivers},
                                                                   headers={'content-type': 'multipart/form-data'})
+                data = file_share_resp_obj.data.decode('utf-8').split('<p class="card-text">')[-1]
+                data2 = data.split('</p>')[0].replace('&#34;', '"')
 
-                file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
+                file_share_resp_json_obj = json.loads(data2)
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.OK)
 
                 self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["asset_id"], share_asset_id)
@@ -328,7 +330,9 @@ class TestManageFilesRestApi(unittest.TestCase):
                             'asset_id': share_asset_id, 'users': 'Bob'},
                                                                   headers={'content-type': 'multipart/form-data'})
 
-                file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
+                data = file_share_resp_obj.data.decode('utf-8').split('<p class="card-text">')[-1]
+                data2 = data.split('</p>')[0].replace('&#34;', '"')
+                file_share_resp_json_obj = json.loads(data2)
 
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.OK)
                 self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["asset_id"], share_asset_id)
@@ -501,7 +505,9 @@ class TestManageFilesRestApi(unittest.TestCase):
                         file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
                             'asset_id': share_asset_id, 'users': 'Bob'}, headers={'content-type': 'multipart/form-data'})
 
-                file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
+                data = file_share_resp_obj.data.decode('utf-8').split('<p class="card-text">')[-1]
+                data2 = data.split('</p>')[0].replace('&#34;', '"')
+                file_share_resp_json_obj = json.loads(data2)
 
                 self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["error"], "Public key does not exists")
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -609,7 +615,9 @@ class TestManageFilesRestApi(unittest.TestCase):
                         file_share_resp_obj = type(self).app.post(jquery_file_share_url, data={
                             'asset_id': wrong_asset_id, 'users': 'Bob'}, headers={'content-type': 'multipart/form-data'})
 
-                file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
+                data = file_share_resp_obj.data.decode('utf-8').split('<p class="card-text">')[-1]
+                data2 = data.split('</p>')[0].replace('&#34;', '"')
+                file_share_resp_json_obj = json.loads(data2)
 
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.INTERNAL_SERVER_ERROR)
                 self.assertEqual(file_share_resp_json_obj["files"][0]["error"], "Key Server problem")
@@ -662,7 +670,7 @@ class TestManageFilesRestApi(unittest.TestCase):
                                                                                                'users': 'Bob'},
                                                                   headers={'content-type': 'multipart/form-data'})
 
-                file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
+                # file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.BAD_REQUEST)
 
         except (OSError, IOError) as e:
@@ -724,7 +732,9 @@ class TestManageFilesRestApi(unittest.TestCase):
                             'asset_id': share_asset_id, 'users': receivers},
                                                                   headers={'content-type': 'multipart/form-data'})
 
-                file_share_resp_json_obj = json.loads(file_share_resp_obj.data.decode("utf-8"))
+                data = file_share_resp_obj.data.decode('utf-8').split('<p class="card-text">')[-1]
+                data2 = data.split('</p>')[0].replace('&#34;', '"')
+                file_share_resp_json_obj = json.loads(data2)
                 self.assertEqual(file_share_resp_obj.status_code, HTTPStatus.INTERNAL_SERVER_ERROR)
 
                 self.assertEqual(file_share_resp_json_obj["Bob"]["files"][0]["asset_id"], share_asset_id)

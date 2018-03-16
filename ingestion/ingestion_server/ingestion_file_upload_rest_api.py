@@ -548,19 +548,19 @@ def file_sharing():
             if status != HTTPStatus.OK:
                 code = status
 
-        home_redirect = "<input type='submit' formaction='/' value='Home'><br><br>"
         resp = json.dumps(response_dict)
-        return resp, code
+        return render_template('response.html', message=str(resp), status=code), code
 
     except (KeyError, IndexError, BadRequest) as e:
         message = str(e)
         response = build_file_share_error_response(asset_id, message)
-        return json.dumps(response), HTTPStatus.BAD_REQUEST
+        return render_template('response.html', message=json.dumps(response), status=HTTPStatus.BAD_REQUEST), HTTPStatus.BAD_REQUEST
 
     except Exception as e:
         message = str(e)
         response = build_file_share_error_response(asset_id, message)
-        return json.dumps(response), HTTPStatus.INTERNAL_SERVER_ERROR
+        return render_template('response.html', message=json.dumps(response), status=HTTPStatus.INTERNAL_SERVER_ERROR), \
+               HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @ingestion_file_upload_bp.route('/manage_files/', methods=["GET"])
